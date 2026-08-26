@@ -1,0 +1,12 @@
+{
+  "name": "pi-briefly",
+  "version": "0.1.0",
+  "description": "Briefify completed Pi tool calls while preserving live output during execution.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": ["pi", "pi-extension", "tui", "tools"],
+  "license": "MIT"
+}
