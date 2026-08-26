@@ -22,12 +22,20 @@ The original tool results remain in the session and can be inspected through the
 
 ## Status
 
-Initial repository. Implementation will use Pi's public extension API and start from the official `minimal-mode.ts` example.
+MVP implementation is available. It wraps Pi's built-in `read`, `bash`, `edit`, `write`, `find`, `grep`, and `ls` tools. Active tool calls keep Pi's normal renderer; finalized calls become a one-line `✓ done` or `✗ failed` summary. `Ctrl+O` reveals the original output.
 
 ## Development
 
+Run directly from this repository:
+
 ```bash
 pi -e ./src/index.ts
+```
+
+Install as a local Pi package for the current project:
+
+```bash
+pi install -l /absolute/path/to/pi-briefly
 ```
 
 ## Scope
