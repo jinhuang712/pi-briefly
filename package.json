@@ -1,19 +1,19 @@
 {
   "name": "pi-briefly",
   "version": "0.1.0",
-  "description": "Briefify completed Pi tool calls while preserving live output during execution.",
-  "type": "module",
+  "description": "Native-first Pi tool presentation modes with compact and collapse views.",
   "private": true,
-  "scripts": {
-    "test": "node --experimental-strip-types --test"
-  },
-  "keywords": ["pi-package", "pi", "pi-extension", "tui", "tools"],
+  "type": "module",
+  "keywords": ["pi-package", "pi-extension", "pi", "tui", "tool-renderer"],
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",
     "@earendil-works/pi-tui": "*"
   },
   "pi": {
-    "extensions": ["./src/index.ts"]
+    "extensions": ["./.pi/extensions/pi-briefly.ts"]
+  },
+  "scripts": {
+    "test": "node --test --experimental-strip-types test/*.test.ts"
   },
   "license": "MIT"
 }

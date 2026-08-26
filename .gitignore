@@ -1,4 +1,6 @@
-node_modules/
-.pi/
 .DS_Store
-coverage/
+*.log
+.pi/sessions/
+.pi/settings.local.json
+.pi/pi-briefly.json
+node_modules/

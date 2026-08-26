@@ -1,48 +1,43 @@
 # pi-briefly
 
-A Pi extension that keeps tool calls visible while they are running, then briefly renders each tool call after it finishes.
+Configurable, native-first tool presentation for Pi.
 
-## Goal
-
-Turn this:
+## Modes
 
 ```text
-bash $ npm test
-[large output...]
+visible  compact  collapse  hidden
 ```
 
-into this after completion:
+Presets are fixed. `collapse` keeps native tool rendering during the run, then hides the settled tool rows and appends one aggregate run summary after the final response.
+
+## Command
 
 ```text
-bash $ npm test
-✓ completed
+/briefly
+/briefly show
+/briefly reload
+/briefly reset
 ```
 
-The original tool results remain in the session and can be inspected through the session/tree mechanisms. This project only changes TUI presentation.
+Configuration files:
 
-## Status
+- `~/.pi/agent/pi-briefly.json`
+- `.pi/pi-briefly.json`
 
-MVP implementation is available. It wraps Pi's built-in `read`, `bash`, `edit`, `write`, `find`, `grep`, and `ls` tools. Active tool calls keep Pi's normal renderer; finalized calls become a one-line `✓ done` or `✗ failed` summary. `Ctrl+O` reveals the original output.
+Install from GitHub:
+
+```bash
+pi install git:github.com/jinhuang712/pi-briefly
+```
+
+See [specs/README.md](specs/README.md) for the full specification and implementation plan.
 
 ## Development
 
-Run directly from this repository:
-
 ```bash
-pi -e ./src/index.ts
+npm test
+PI_OFFLINE=1 pi --no-session --no-approve \
+  --extension .pi/extensions/pi-briefly.ts \
+  --tools bash,read,write,edit,find,grep,ls \
+  --mode json -p 'Run the tool smoke test and stop.'
 ```
-
-Install as a local Pi package for the current project:
-
-```bash
-pi install -l /absolute/path/to/pi-briefly
-```
-
-## Scope
-
-- Keep live tool output available while a tool is executing.
-- Briefify each completed tool call automatically.
-- Preserve errors and useful small summaries.
-- Keep `Ctrl+O` available as the path to expanded output where supported.
-
-Non-goals: changing model context, deleting session data, or hiding the final assistant response.

@@ -1,0 +1,82 @@
+# 002 Mode Specification
+
+## 1. Mode model
+
+```ts
+type PresetMode =
+  | "visible"
+  | "compact"
+  | "collapse"
+  | "hidden";
+```
+
+The active mode is a preset selection, not a mergeable set of switches.
+
+## 2. `visible`
+
+Normal native presentation for every tool:
+
+- native call renderer
+- native partial renderer
+- native result renderer
+- native code/diff/image rendering
+- native expand behavior
+
+The preset has no user-editable per-tool overrides.
+
+## 3. `compact`
+
+Every tool shows only its operation brief:
+
+- no native content preview
+- no result body
+- no diff body
+- no partial output
+- no full command by default
+
+The row remains visible because the brief is the useful compact representation.
+
+## 4. `collapse`
+
+During an agent run, tool calls use the native `visible` presentation. After the agent is settled:
+
+- the completed tool call/result rows are hidden
+- intermediate thinking/planning content is replaced by `… intermediate steps collapsed`
+- one aggregate run summary is appended after the final assistant response
+- the summary is a flat, single-line component without the native tool box/padding
+- the final assistant response remains unchanged
+
+`Ctrl+O` expands the underlying native tool rows after they have been collapsed.
+
+The transition occurs at `agent_settled`, not merely at `turn_end`, so retries and compaction are not hidden prematurely.
+
+## 5. `hidden`
+
+No process representation is rendered:
+
+- no call
+- no partial state
+- no result
+- no brief
+- no empty shell row
+
+Tool execution and model context are unaffected.
+
+## 6. Precedence
+
+```text
+preset mode
+  visible/compact/collapse/hidden => fixed policy
+```
+
+All modes are fixed presets; there is no per-tool override layer.
+
+## 7. State transitions
+
+```text
+idle -> running -> completed
+
+agent_start       : reset settled state
+agent_settled     : collapse mode hides settled rows and appends the aggregate summary
+session shutdown  : discard runtime visibility state
+```

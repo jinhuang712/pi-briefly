@@ -1,44 +1,73 @@
-export interface BriefResult {
-  ok: boolean;
-  elapsedMs?: number;
-  detail?: string;
+import type { ToolName } from "./types.ts";
+
+export function shorten(value: string, maxLength = 100): string {
+	if (value.length <= maxLength) return value;
+	const headLength = Math.ceil((maxLength - 3) * 0.7);
+	const tailLength = maxLength - 3 - headLength;
+	return `${value.slice(0, headLength)}...${value.slice(-tailLength)}`;
 }
 
-export interface ToolResultLike {
-  content?: Array<{ type?: string; text?: string }>;
-  isError?: boolean;
+export function normalizedCommand(command: string): string {
+	return command.replace(/\s+/g, " ").trim();
 }
 
-const MAX_DETAIL_LENGTH = 120;
-
-function firstText(result: ToolResultLike | undefined): string | undefined {
-  const text = result?.content
-    ?.filter((item) => item.type === "text" && typeof item.text === "string")
-    .map((item) => item.text?.trim())
-    .find(Boolean);
-
-  if (!text) return undefined;
-
-  const oneLine = text.replace(/\s+/g, " ");
-  return oneLine.length > MAX_DETAIL_LENGTH
-    ? `${oneLine.slice(0, MAX_DETAIL_LENGTH - 1)}…`
-    : oneLine;
+export function excerpt(value: string, maxLength: number, maxLines: number): string {
+	const sourceLines = value.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+	while (sourceLines.length > 0 && sourceLines[0] === "") sourceLines.shift();
+	while (sourceLines.length > 0 && sourceLines[sourceLines.length - 1] === "") sourceLines.pop();
+	if (sourceLines.length === 0) return "";
+	const lines = sourceLines.slice(0, maxLines);
+	let output = shorten(lines.join("\n"), maxLength);
+	if (sourceLines.length > maxLines && !output.endsWith("...")) output += "...";
+	return output;
 }
 
-export function summarizeToolResult(
-  result: ToolResultLike | undefined,
-  elapsedMs?: number,
-): BriefResult {
-  const ok = result?.isError !== true;
-  return {
-    ok,
-    elapsedMs,
-    detail: ok ? undefined : firstText(result),
-  };
+export function commandLabel(command: string): string | undefined {
+	const match = /(?:printf|echo)\s+(?:-[^-\s]+\s+)?(["'])(.*?)\1/i.exec(command);
+	if (!match?.[2]) return undefined;
+	const label = match[2]
+		.replace(/%[-+#0-9.*]*[a-zA-Z]/g, " ")
+		.replace(/\s+at\s+depth\b.*$/i, "")
+		.replace(/\s*:\s*$/, "")
+		.trim();
+	return label || undefined;
 }
 
-export function formatElapsed(elapsedMs?: number): string {
-  if (elapsedMs === undefined || elapsedMs < 1000) return "";
-  if (elapsedMs < 10_000) return ` (${(elapsedMs / 1000).toFixed(1)}s)`;
-  return ` (${Math.round(elapsedMs / 1000)}s)`;
+export function summarizeCommand(command: string): string {
+	const normalized = normalizedCommand(command);
+	const lower = normalized.toLowerCase();
+	const label = commandLabel(normalized);
+	if (/\bfind(?:\s|$)/.test(lower)) return `finding ${label ?? "files"}`;
+	if (/\b(?:rg|grep)(?:\s|$)/.test(lower)) return label ? `searching for ${label}` : "searching text";
+	if (/\b(?:ls|exa|tree)(?:\s|$)/.test(lower)) return "listing files";
+	if (/\b(?:cat|head|tail|sed|awk)(?:\s|$)/.test(lower)) return "reading file contents";
+	if (/\bwc(?:\s|$)/.test(lower)) return "counting lines";
+	if (/\bgit\b.*\bstatus\b/.test(lower)) return "checking git status";
+	if (/\bgit\b.*\bdiff\b/.test(lower)) return "checking git changes";
+	if (/\bgit\b.*\blog\b/.test(lower)) return "checking git history";
+	if (/\bpwd(?:\s|$)/.test(lower)) return "checking the current directory";
+	if (/\b(?:npm|pnpm|yarn|bun)(?:\s|$)/.test(lower)) return "running a package command";
+	if (label) return `printing ${label}`;
+	return "running a shell command";
+}
+
+export function toolBrief(tool: ToolName, args: Record<string, unknown>): string {
+	switch (tool) {
+		case "bash": {
+			const command = typeof args.command === "string" ? normalizedCommand(args.command) : "...";
+			return `bash ${summarizeCommand(command)}`;
+		}
+		case "read":
+			return `read ${typeof args.path === "string" ? args.path : "..."}`;
+		case "write":
+			return `write ${typeof args.path === "string" ? args.path : "..."}`;
+		case "edit":
+			return `edit ${typeof args.path === "string" ? args.path : "..."}`;
+		case "find":
+			return `find ${typeof args.pattern === "string" ? args.pattern : "files"}`;
+		case "grep":
+			return `grep ${typeof args.pattern === "string" ? args.pattern : "text"}`;
+		case "ls":
+			return `ls ${typeof args.path === "string" ? args.path : "."}`;
+	}
 }
