@@ -6,7 +6,7 @@ All notable changes to `pi-briefly` are documented here.
 
 ### Added
 
-- Elapsed time on Pi's working indicator, displayed as `Working... (Ns)` during each active turn.
+- Friendly elapsed time on Pi's working indicator, displayed as `Working... (1 minute 53 seconds)` during each active turn.
 
 ### Fixed
 
