@@ -216,7 +216,7 @@ export function renderCallWithStyle(
 	const callComponent = policy.style === "hidden"
 		? new EmptyComponent()
 		: policy.style === "brief"
-			? new Text(brief, 0, 0)
+			? new Text(theme.fg("toolTitle", theme.bold(brief)), 0, 0)
 			: policy.style === "full"
 				? inner ?? new Text(brief, 0, 0)
 				: (() => {
@@ -225,7 +225,7 @@ export function renderCallWithStyle(
 					state.callDecorator = decorator;
 					return decorator;
 				})();
-	row.setCall(callComponent, context.isPartial, context.isError, policy.style === "brief" || policy.style === "hidden");
+	row.setCall(callComponent, context.isPartial, context.isError, policy.style === "hidden");
 	return row;
 }
 
@@ -249,7 +249,7 @@ export function renderResultWithStyle(
 		? new EmptyComponent()
 		: policy.style === "brief"
 			? new Text(
-					`\n${theme.fg(context.isError ? "error" : "muted", `│ ${compactResultSummary(policy.tool, context.args, { ...result, isError: context.isError })}`)}`,
+					`\n${theme.fg(context.isError ? "error" : "toolOutput", `│ ${compactResultSummary(policy.tool, context.args, { ...result, isError: context.isError })}`)}`,
 					0,
 					0,
 				)
