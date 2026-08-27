@@ -24,7 +24,7 @@ After a settled turn, `collapse` keeps the final answer and displays:
 ✓ spent 11 seconds · 4 tool calls · 1 file read · used context 6.4k (2%) · spent tokens 31.2k
 ```
 
-During execution, tools remain visible using Pi's native renderer. `Ctrl+O` expands the folded native tool rows and restores the original thinking/tool presentation; pressing it again folds them back.
+During execution, tools remain visible using Pi's native renderer. Pi's working indicator also shows elapsed time, for example `Working... (12s)`. `Ctrl+O` expands the folded native tool rows and restores the original thinking/tool presentation; pressing it again folds them back.
 
 The summary is turn-scoped:
 

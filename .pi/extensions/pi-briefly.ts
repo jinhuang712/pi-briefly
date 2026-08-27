@@ -145,6 +145,8 @@ export default function piBriefly(pi: ExtensionAPI): void {
 	let currentConfig = loadConfig(process.cwd()).config;
 	const lifecycle = new LifecycleController();
 	let turnTokens = 0;
+	let workingStartedAt: number | undefined;
+	let workingTimer: ReturnType<typeof setInterval> | undefined;
 	const initial = getBuiltInTools(process.cwd()) as Record<string, AnyTool>;
 	let toolsExpanded = false;
 	let refreshAssistantComponents: (() => void) | undefined;
@@ -183,13 +185,32 @@ export default function piBriefly(pi: ExtensionAPI): void {
 		toolsExpanded = expanded;
 		if (lifecycle.isSettled()) refreshAssistantComponents?.();
 	};
+	const stopWorkingTimer = (ctx: any): void => {
+		if (workingTimer) clearInterval(workingTimer);
+		workingTimer = undefined;
+		workingStartedAt = undefined;
+		if (ctx.hasUI) ctx.ui.setWorkingMessage();
+	};
+	const startWorkingTimer = (ctx: any): void => {
+		stopWorkingTimer(ctx);
+		if (!ctx.hasUI) return;
+		workingStartedAt = Date.now();
+		const update = (): void => {
+			if (workingStartedAt === undefined) return;
+			const elapsedSeconds = Math.floor((Date.now() - workingStartedAt) / 1000);
+			ctx.ui.setWorkingMessage(`Working... (${elapsedSeconds}s)`);
+		};
+		update();
+		workingTimer = setInterval(update, 1000);
+	};
 
 	pi.on("session_start", async (_event, ctx) => {
 		reloadConfig(ctx.cwd, ctx.hasUI ? (message, level) => ctx.ui.notify(message, level) : undefined);
 	});
-	pi.on("agent_start", () => {
+	pi.on("agent_start", (_event, ctx) => {
 		turnTokens = 0;
 		lifecycle.beginAgent();
+		startWorkingTimer(ctx);
 	});
 	pi.on("message_end", (event) => {
 		const message = event.message as any;
@@ -201,7 +222,9 @@ export default function piBriefly(pi: ExtensionAPI): void {
 		if (isToolName(event.toolName)) lifecycle.start(event.toolCallId, event.toolName, event.args);
 	});
 	pi.on("tool_execution_end", (event) => lifecycle.complete(event.toolCallId, event.isError));
+	pi.on("agent_end", (_event, ctx) => stopWorkingTimer(ctx));
 	pi.on("agent_settled", (_event, ctx) => {
+		stopWorkingTimer(ctx);
 		const stats = lifecycle.statistics();
 		const summary = collapseSummary(ctx, lifecycle, turnTokens);
 		lifecycle.settleAgent(summary);
@@ -214,7 +237,10 @@ export default function piBriefly(pi: ExtensionAPI): void {
 			pi.appendEntry(COLLAPSE_SUMMARY_TYPE, { summary });
 		}
 	});
-	pi.on("session_shutdown", () => lifecycle.clear());
+	pi.on("session_shutdown", (_event, ctx) => {
+		stopWorkingTimer(ctx);
+		lifecycle.clear();
+	});
 
 	for (const toolName of toolNames) {
 		registerToolOverride(pi, toolName, initial[toolName], getConfig, lifecycle, onToolsExpanded);
