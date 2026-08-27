@@ -65,6 +65,24 @@ function isLocaleRelated(args: Record<string, unknown>): boolean {
 	}
 }
 
+function filePurpose(tool: "read" | "write" | "edit", args: Record<string, unknown>, locale: ResolvedLocale): string {
+	const path = typeof args.path === "string" ? args.path.toLowerCase() : "";
+	const zh = locale === "zh";
+	if (isLocaleRelated(args)) {
+		if (tool === "write") return zh ? "国际化" : "localizing";
+		return zh ? "处理 locale" : "resolving locale";
+	}
+	if (/readme|docs?|specs?/.test(path)) {
+		if (tool === "read") return zh ? "查看文档" : "reviewing docs";
+		return zh ? "更新文档" : "updating docs";
+	}
+	if (/test|spec/.test(path)) return zh ? "更新测试" : "updating tests";
+	if (/config|settings/.test(path)) return zh ? "更新配置" : "updating config";
+	if (tool === "read") return zh ? "读取" : "reading";
+	if (tool === "write") return zh ? "写入" : "writing";
+	return zh ? "编辑" : "editing";
+}
+
 export function compactCallParts(tool: ToolName, args: Record<string, unknown>, locale: ResolvedLocale = "en"): CompactCallParts {
 	switch (tool) {
 		case "bash": {
@@ -72,14 +90,11 @@ export function compactCallParts(tool: ToolName, args: Record<string, unknown>, 
 			return { purpose: summarizeCommand(command, locale), detail: compactCommandBrief(command) };
 		}
 		case "read":
-			if (isLocaleRelated(args)) return { purpose: locale === "zh" ? "处理 locale" : "resolving locale", detail: shorten(typeof args.path === "string" ? args.path : "...", 100) };
-			return { purpose: locale === "zh" ? "读取" : "reading", detail: shorten(typeof args.path === "string" ? args.path : "...", 100) };
+			return { purpose: filePurpose("read", args, locale), detail: shorten(typeof args.path === "string" ? args.path : "...", 100) };
 		case "write":
-			if (isLocaleRelated(args)) return { purpose: locale === "zh" ? "国际化" : "localizing", detail: shorten(typeof args.path === "string" ? args.path : "...", 100) };
-			return { purpose: locale === "zh" ? "写入" : "writing", detail: shorten(typeof args.path === "string" ? args.path : "...", 100) };
+			return { purpose: filePurpose("write", args, locale), detail: shorten(typeof args.path === "string" ? args.path : "...", 100) };
 		case "edit":
-			if (isLocaleRelated(args)) return { purpose: locale === "zh" ? "处理 locale" : "resolving locale", detail: shorten(typeof args.path === "string" ? args.path : "...", 100) };
-			return { purpose: locale === "zh" ? "编辑" : "editing", detail: shorten(typeof args.path === "string" ? args.path : "...", 100) };
+			return { purpose: filePurpose("edit", args, locale), detail: shorten(typeof args.path === "string" ? args.path : "...", 100) };
 		case "find":
 			return { purpose: locale === "zh" ? "查找文件" : "finding files", detail: shorten(typeof args.pattern === "string" ? args.pattern : "files", 100) };
 		case "grep":

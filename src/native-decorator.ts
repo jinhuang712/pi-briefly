@@ -166,12 +166,10 @@ class DecoratedComponent implements Component {
 		const lines = this.inner.render(width);
 		if (this.style === "full") return lines;
 		if (this.style === "compact" && this.policy.tool === "edit") return this.renderCompactEdit(width, lines);
-		let limited: string[];
 		if (this.style === "compact" && this.policy.tool === "write" && this.policy.slot === "call") {
-			limited = this.limitHead(lines);
-		} else {
-			limited = this.limit(lines);
+			return this.renderCompactWrite(width, lines);
 		}
+		const limited = this.limit(lines);
 		if (this.policy.slot === "result" && this.summary) {
 			const summary = new Text(
 				`\n${this.theme.fg("muted", "│")} ${this.theme.fg("toolOutput", this.summary)}`,
@@ -203,6 +201,14 @@ class DecoratedComponent implements Component {
 		}
 
 		return changedIndexes.length > 0 ? changedIndexes.map((index) => compactLines[index]) : compactLines;
+	}
+
+	private renderCompactWrite(width: number, lines: string[]): string[] {
+		const limited = this.limitHead(lines);
+		const headerIndex = limited.findIndex((line) => stripTerminalSequences(line).trim().length > 0);
+		if (headerIndex < 0) return limited;
+		const header = new Text(compactCallText(this.theme, "write", this.args, this.brief, this.locale), 0, 0).render(width);
+		return [...limited.slice(0, headerIndex), ...header, ...limited.slice(headerIndex + 1)];
 	}
 
 	private limitHead(lines: string[]): string[] {

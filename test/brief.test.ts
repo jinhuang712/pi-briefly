@@ -26,8 +26,10 @@ test("briefs tools by purpose", () => {
 test("localizes compact purposes and result summaries", () => {
 	assert.equal(summarizeCommand("git status --short", "zh"), "检查 Git 状态");
 	assert.equal(compactCallParts("read", { path: "src/index.ts" }, "zh").purpose, "读取");
+	assert.equal(compactCallParts("read", { path: "README.md" }, "en").purpose, "reviewing docs");
 	assert.equal(compactCallParts("find", { pattern: "*.ts" }, "zh").purpose, "查找文件");
 	assert.equal(compactCallParts("edit", { path: "src/i18n.ts" }, "en").purpose, "resolving locale");
+	assert.equal(compactCallParts("write", { path: "README.md" }, "en").purpose, "updating docs");
 	assert.equal(
 		compactResultSummary("write", { content: "一\n二" }, { content: [] }, "zh"),
 		"已写入 2 行 · 3 字符",
