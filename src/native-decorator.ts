@@ -1,5 +1,6 @@
 import type { Theme, ToolRenderResultOptions } from "@earendil-works/pi-coding-agent";
 import { Box, type Component, Text } from "@earendil-works/pi-tui";
+import { compactResultSummary } from "./brief.ts";
 import type { ResolvedSlotConfig, ToolStyle } from "./types.ts";
 
 export interface RenderContext {
@@ -37,7 +38,6 @@ type DecoratedState = {
 	resultDecorator?: DecoratedComponent;
 	row?: ToolRowComponent;
 	emptyResult?: EmptyComponent;
-	callIsBrief?: boolean;
 };
 
 function isOmissionLine(line: string): boolean {
@@ -205,12 +205,10 @@ export function renderCallWithStyle(
 	const state = stateOf(context);
 	const row = rowOf(context, theme, policy.tool);
 	if (summary) {
-		state.callIsBrief = false;
 		const summaryText = `${theme.fg("success", "✓")} ${theme.fg("muted", summary)} ${theme.fg("dim", `(${_hint})`)}`;
 		row.setCall(new Text(summaryText, 0, 0), context.isPartial, context.isError, true);
 		return row;
 	}
-	state.callIsBrief = policy.style === "brief";
 	const inner = policy.style === "hidden" || policy.style === "brief"
 		? undefined
 		: nativeRenderer?.(args, theme, nativeContext(context, state.nativeCall));
@@ -247,10 +245,14 @@ export function renderResultWithStyle(
 		? undefined
 		: nativeRenderer?.(result, options, theme, nativeContext(context, state.nativeResult));
 	state.nativeResult = inner;
-	const resultComponent = policy.style === "hidden" || (policy.style === "brief" && state.callIsBrief)
+	const resultComponent = policy.style === "hidden"
 		? new EmptyComponent()
 		: policy.style === "brief"
-			? new Text(brief, 0, 0)
+			? new Text(
+					`\n${theme.fg(context.isError ? "error" : "muted", `│ ${compactResultSummary(policy.tool, context.args, { ...result, isError: context.isError })}`)}`,
+					0,
+					0,
+				)
 			: policy.style === "full"
 				? inner ?? new Text(brief, 0, 0)
 				: (() => {

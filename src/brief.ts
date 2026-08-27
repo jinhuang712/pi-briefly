@@ -1,5 +1,11 @@
 import type { ToolName } from "./types.ts";
 
+export interface ToolResultLike {
+	content?: Array<{ type?: string; text?: string }>;
+	details?: unknown;
+	isError?: boolean;
+}
+
 export function shorten(value: string, maxLength = 100): string {
 	if (value.length <= maxLength) return value;
 	const headLength = Math.ceil((maxLength - 3) * 0.7);
@@ -36,6 +42,65 @@ export function commandLabel(command: string): string | undefined {
 	return label || undefined;
 }
 
+function resultText(result: ToolResultLike | undefined): string {
+	return result?.content
+		?.filter((item) => item.type === "text" && typeof item.text === "string")
+		.map((item) => item.text ?? "")
+		.join("\n")
+		.trim() ?? "";
+}
+
+function lineCount(value: string): number {
+	const text = value.trim();
+	return text ? text.split(/\r?\n/).length : 0;
+}
+
+function countLabel(count: number, singular: string, plural = `${singular}s`): string {
+	return `${count} ${count === 1 ? singular : plural}`;
+}
+
+export function compactResultSummary(
+	tool: ToolName,
+	args: Record<string, unknown> | undefined,
+	result: ToolResultLike | undefined,
+): string {
+	if (result?.isError) {
+		const detail = resultText(result);
+		return detail ? `Error: ${detail.replace(/\s+/g, " ")}` : "Error";
+	}
+
+	const output = resultText(result);
+	const details = result?.details as { truncation?: { truncated?: boolean } } | undefined;
+	const truncated = details?.truncation?.truncated === true;
+
+	switch (tool) {
+		case "bash":
+			return output
+				? `${countLabel(lineCount(output), "line")} of output${truncated ? " · truncated" : ""}`
+				: "completed · no output";
+		case "read":
+			return output
+				? `${countLabel(lineCount(output), "line")} read${truncated ? " · truncated" : ""}`
+				: "read · no text output";
+		case "write": {
+			const content = typeof args?.content === "string" ? args.content : output;
+			return content
+				? `${countLabel(lineCount(content), "line")} written · ${content.length} chars`
+				: "written · empty file";
+		}
+		case "edit": {
+			const edits = Array.isArray(args?.edits) ? args.edits.length : 0;
+			return edits ? `${countLabel(edits, "block")} replaced` : "edit completed";
+		}
+		case "find":
+			return `${countLabel(lineCount(output), "match")} found`;
+		case "grep":
+			return `${countLabel(lineCount(output), "match")} found${truncated ? " · truncated" : ""}`;
+		case "ls":
+			return `${countLabel(lineCount(output), "entry")} listed`;
+	}
+}
+
 export function summarizeCommand(command: string): string {
 	const normalized = normalizedCommand(command);
 	const lower = normalized.toLowerCase();
@@ -61,16 +126,16 @@ export function toolBrief(tool: ToolName, args: Record<string, unknown>): string
 			return `bash ${summarizeCommand(command)}`;
 		}
 		case "read":
-			return `read ${typeof args.path === "string" ? args.path : "..."}`;
+			return `read file ${typeof args.path === "string" ? args.path : "..."}`;
 		case "write":
-			return `write ${typeof args.path === "string" ? args.path : "..."}`;
+			return `write file ${typeof args.path === "string" ? args.path : "..."}`;
 		case "edit":
-			return `edit ${typeof args.path === "string" ? args.path : "..."}`;
+			return `edit file ${typeof args.path === "string" ? args.path : "..."}`;
 		case "find":
-			return `find ${typeof args.pattern === "string" ? args.pattern : "files"}`;
+			return `find files ${typeof args.pattern === "string" ? args.pattern : "files"}`;
 		case "grep":
-			return `grep ${typeof args.pattern === "string" ? args.pattern : "text"}`;
+			return `grep text ${typeof args.pattern === "string" ? args.pattern : "text"}`;
 		case "ls":
-			return `ls ${typeof args.path === "string" ? args.path : "."}`;
+			return `ls directory ${typeof args.path === "string" ? args.path : "."}`;
 	}
 }

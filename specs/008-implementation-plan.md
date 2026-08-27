@@ -108,7 +108,7 @@ Tasks:
 Tests:
 
 - policy assertions for every mode and tool
-- compact never shows result bodies
+- compact shows result summaries but never verbose result bodies
 - hidden leaves no row
 
 ## Phase 6: configuration loading

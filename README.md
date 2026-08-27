@@ -9,11 +9,24 @@ A native-first [Pi](https://github.com/badlogic/pi-mono) extension for reducing 
 | Mode | Behavior |
 | --- | --- |
 | `visible` | Native Pi rendering for every tool call and result. |
-| `compact` | Short operation briefs; verbose result bodies are omitted. |
+| `compact` | Native-like operation briefs plus one-line result summaries; verbose bodies are omitted. |
 | `collapse` | Native rendering while the agent runs; after the turn settles, tool rows are folded and an aggregate summary is shown. |
 | `hidden` | Tool rows are fully hidden while execution and model context remain unchanged. |
 
 Modes are fixed presets; there is no per-tool override layer.
+
+A compact run looks like this:
+
+```text
+bash printing test output
+│ 2 lines of output
+
+read file src/index.ts
+│ 120 lines read
+
+write file README.md
+│ 42 lines written · 980 chars
+```
 
 ### Collapse output
 

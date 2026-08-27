@@ -26,15 +26,20 @@ The preset has no user-editable per-tool overrides.
 
 ## 3. `compact`
 
-Every tool shows only its operation brief:
+Every tool keeps a native-like two-part row, with a concise operation line and a one-line result summary:
 
-- no native content preview
-- no result body
-- no diff body
-- no partial output
-- no full command by default
+```text
+bash printing test output
+│ 2 lines of output
 
-The row remains visible because the brief is the useful compact representation.
+read file src/index.ts
+│ 120 lines read
+
+write file README.md
+│ 42 lines written · 980 chars
+```
+
+The call line contains the tool name, purpose, and a short argument/path brief. The result line contains useful counts or completion details rather than the full output, diff, or file body. Errors remain visible on the result line. `Ctrl+O` is available for the native full presentation where Pi supports expansion.
 
 ## 4. `collapse`
 

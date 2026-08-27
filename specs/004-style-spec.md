@@ -16,7 +16,7 @@ The effective style is resolved independently for each slot by the active fixed 
 | `full` | Return the native component unchanged |
 | `highlight` | Return native syntax/diff component, optionally decorated with smart clipping |
 | `partial` | Return native component through a visual line/character limiter |
-| `compact` | Return a short excerpt component; preserve native result data for expansion when possible |
+| `compact` | Return a native-like operation line plus a one-line result summary; do not render verbose bodies |
 | `brief` | Return only the generated operation brief as a flat line without tool-box padding |
 | `hidden` | Return an empty component through the hidden self-shell |
 
@@ -27,13 +27,16 @@ The native component must receive its original `lastComponent`, `state`, `args`,
 ### Bash
 
 - Native output uses Pi's streaming renderer.
-- `brief` call uses purpose classification and a safely shortened command when enabled.
+- The compact call uses purpose classification and a safely shortened command brief.
+- The compact result shows output line count and truncation state.
 - `partial` result uses the native component with a visual output limit.
 - `full` keeps native output and expand behavior.
 
 ### Read
 
 - Native renderer retains language highlighting, image handling, truncation notes, and ranges.
+- The compact call shows the read purpose and target path.
+- The compact result shows the number of lines read and truncation state.
 - `partial` limits the rendered text while keeping the native component.
 - `highlight` keeps syntax highlighting and can use an excerpt window.
 - `brief` shows target path and range only.
@@ -41,17 +44,18 @@ The native component must receive its original `lastComponent`, `state`, `args`,
 ### Write
 
 - Native renderer remains the source of code highlighting and line-count/expand hints.
+- The compact call shows the write purpose and destination path.
+- The compact result shows written line and character counts.
 - `partial` decorates the native content preview.
-- `compact` shows a short content excerpt.
 - `brief` shows destination and purpose without content.
 - Hidden successful completion text does not hide errors.
 
 ### Edit
 
 - Native renderer remains the source of pre-execution diff preview and result diff rendering.
+- The compact result shows the number of replaced blocks.
 - `highlight` is the normal style for diff-aware rendering.
 - `partial` clips a large rendered diff while retaining colors and line numbers.
-- `compact` shows a diff summary or a small first/last section.
 - `brief` shows target path and edit count.
 - `hidden` hides the diff but must not affect the edit operation.
 
@@ -59,7 +63,7 @@ The native component must receive its original `lastComponent`, `state`, `args`,
 
 - `full` delegates native result formatting and limits.
 - `partial` uses native output with a visual limit.
-- `compact` shows a small result count/excerpt.
+- `compact` shows a one-line result count and the operation target.
 - `brief` shows operation and target/pattern.
 
 ## 4. Smart large-content policy
