@@ -6,14 +6,18 @@ Register `/briefly` as an extension command. The command must work only as an in
 
 ## 2. Mode selector
 
-The selector contains each mode with a short description:
+The selector contains each mode with a short description. The active mode is always listed first, carries a `✓` marker and a localized `(current)` / `（当前）` suffix, and the dialog title names it so the current selection is unmistakable before switching:
 
 ```text
-visible — Full native · 完整原生，保留高亮/diff/流式与展开
-compact — Brief + summary · 紧凑：一行摘要+最终 Took，edit/write 保留原生压缩
-collapse — Fold after settled · 运行时可见，完成后折叠为汇总
-hidden — No UI · 完全隐藏，不留空行
+pi-briefly mode — compact
+
+✓ compact  — Compact summary + Took (current)
+  visible  — Full native
+  collapse — Fold after run
+  hidden   — No UI
 ```
+
+The cursor starts on the first entry, which is the active mode.
 
 Selecting a mode immediately applies it without a second confirmation:
 
