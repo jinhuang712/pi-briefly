@@ -6,22 +6,21 @@ Register `/briefly` as an extension command. The command must work only as an in
 
 ## 2. Mode selector
 
-The selector contains:
+The selector contains each mode with a short description:
 
 ```text
-visible
-compact
-collapse
-hidden
+visible — Full native · 完整原生，保留高亮/diff/流式与展开
+compact — Brief + summary · 紧凑：一行摘要+最终 Took，edit/write 保留原生压缩
+collapse — Fold after settled · 运行时可见，完成后折叠为汇总
+hidden — No UI · 完全隐藏，不留空行
 ```
 
-Selecting a mode:
+Selecting a mode immediately applies it without a second confirmation:
 
-1. ask for confirmation
-2. update the active mode
-3. persist it to project scope
-4. invalidate existing rows
-5. notify the user
+1. update the active mode
+2. persist it to project scope
+3. invalidate existing rows
+4. notify the user
 
 ## 3. Additional commands
 

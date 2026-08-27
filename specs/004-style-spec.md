@@ -16,7 +16,7 @@ The effective style is resolved independently for each slot by the active fixed 
 | `full` | Return the native component unchanged |
 | `highlight` | Return native syntax/diff component, optionally decorated with smart clipping |
 | `partial` | Return native component through a visual line/character limiter |
-| `compact` | Return a native-like operation line plus a one-line result summary; do not render verbose bodies |
+| `compact` | Return a native-like operation line plus a one-line result summary; `edit` uses its native component through compact clipping |
 | `brief` | Return only the generated operation brief as a flat line without tool-box padding |
 | `hidden` | Return an empty component through the hidden self-shell |
 
@@ -44,6 +44,7 @@ The native component must receive its original `lastComponent`, `state`, `args`,
 ### Write
 
 - Native renderer remains the source of code highlighting and line-count/expand hints.
+- Compact mode keeps the native preview and shows only its first few lines.
 - The compact call shows the write purpose and destination path.
 - The compact result shows written line and character counts.
 - `partial` decorates the native content preview.
@@ -53,7 +54,8 @@ The native component must receive its original `lastComponent`, `state`, `args`,
 ### Edit
 
 - Native renderer remains the source of pre-execution diff preview and result diff rendering.
-- The compact result shows the number of replaced blocks.
+- Compact mode keeps both slots on Pi's native renderer while retaining only changed diff lines in the native shell.
+- Native preview/result diffs retain colors, line numbers, and expand behavior.
 - `highlight` is the normal style for diff-aware rendering.
 - `partial` clips a large rendered diff while retaining colors and line numbers.
 - `brief` shows target path and edit count.
@@ -90,4 +92,4 @@ For narrow terminals, limits are applied after rendering to visual lines, not ra
 resolveStyle(mode, toolName, slot, lifecycleState): ToolStyle
 ```
 
-Preset resolution is fixed. Lifecycle transformation for collapse is applied after preset resolution and before rendering.
+Preset resolution is fixed, with the built-in `edit` exception in compact mode so diff rendering is not discarded. Lifecycle transformation for collapse is applied after preset resolution and before rendering.

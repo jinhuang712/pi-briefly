@@ -72,6 +72,10 @@ Verify:
 - native syntax/diff highlighting
 - Ctrl+O expansion
 - state updates after agent settles
+- compact mode emits exactly one final `(Took …)` line per tool-using turn
+- compact tool rows do not duplicate per-tool durations
+- compact edit output keeps only native-colored changed diff lines
+- compact write output keeps only the first few native-highlighted preview lines
 
 ## 4. Lifecycle scenarios
 

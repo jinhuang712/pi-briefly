@@ -26,21 +26,22 @@ The preset has no user-editable per-tool overrides.
 
 ## 3. `compact`
 
-Every tool keeps a native-like two-part row, with a concise operation line and a one-line result summary:
+Most tools keep a native-like two-part row, with a concise operation line and a one-line result summary. `edit` keeps Pi's native preview and result diff components, showing only changed diff lines in the native shell. New `write` calls keep Pi's native syntax-highlighted preview, limited to the first few lines:
 
 ```text
 bash printing test output
 │ 2 lines of output
-(Took 3 seconds.)
 
 read file src/index.ts
 │ 120 lines read
 
 write file README.md
 │ 42 lines written · 980 chars
+
+(Took 3 seconds.)
 ```
 
-The call line contains an italic tool name, a normal-weight purpose, and a dim short argument/path or script brief. The result line contains useful counts or completion details rather than the full output, diff, or file body, followed by a friendly duration such as `(Took 1 minute 53 seconds.)`. Errors remain visible on the result line. The row keeps Pi's native tool background, padding, and status colors. `Ctrl+O` is available for the native full presentation where Pi supports expansion.
+The call line contains a styled tool name, purpose, and dim short argument/path or script brief. The result line contains a visible `│` separator and useful counts or completion details rather than the full output or file body. Errors remain visible on the result line. `edit` and new `write` calls are exceptions: their native components are compacted without replacing syntax/diff colors, line numbers, or expand behavior. After the whole turn, compact mode emits one friendly duration such as `(Took 1 minute 53 seconds.)`; native tool rows retain their own per-tool elapsed counter. Compact rows keep Pi's native tool background, padding, and status colors. `Ctrl+O` is available for the native full presentation where Pi supports expansion.
 
 Active working time uses the same day/hour/minute/second units instead of a seconds-only counter.
 
