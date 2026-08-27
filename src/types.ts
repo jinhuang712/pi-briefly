@@ -18,9 +18,13 @@ export interface SlotConfig {
 	showExpandHint?: boolean;
 }
 
+export type Locale = "en" | "zh" | "auto";
+export type ResolvedLocale = "en" | "zh";
+
 export interface BrieflyConfig {
 	version: 1;
 	mode: PresetMode;
+	locale: Locale;
 }
 
 export interface LifecycleView {
