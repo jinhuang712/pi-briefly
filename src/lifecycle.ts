@@ -5,6 +5,8 @@ interface ToolCallRecord {
 	toolName: ToolName;
 	runID: number;
 	status: "running" | "completed" | "error";
+	startedAt: number;
+	endedAt?: number;
 	settled: boolean;
 	summary?: string;
 	invalidate?: () => void;
@@ -68,6 +70,7 @@ export class LifecycleController {
 			toolName,
 			runID: this.currentRun.runID,
 			status: "running",
+			startedAt: Date.now(),
 			settled: false,
 		};
 		this.calls.set(toolCallID, call);
@@ -79,6 +82,7 @@ export class LifecycleController {
 		const call = this.calls.get(toolCallID);
 		if (!call) return;
 		call.status = isError ? "error" : "completed";
+		call.endedAt ??= Date.now();
 		const run = this.runs.get(call.runID);
 		if (run && isError) run.errors++;
 		this.invalidateAll();
@@ -129,6 +133,11 @@ export class LifecycleController {
 
 	isSettled(): boolean {
 		return this.settled;
+	}
+
+	durationMs(toolCallID: string): number | undefined {
+		const call = this.calls.get(toolCallID);
+		return call?.endedAt === undefined ? undefined : call.endedAt - call.startedAt;
 	}
 
 	summaryFor(toolCallID: string): string | undefined {

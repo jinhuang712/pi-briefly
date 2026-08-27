@@ -5,12 +5,18 @@ export interface ContextSnapshot {
 	percent: number | null;
 }
 
-function formatDuration(milliseconds: number): string {
-	const seconds = Math.max(0, Math.round(milliseconds / 1000));
-	const minutes = Math.floor(seconds / 60);
-	const remainingSeconds = seconds % 60;
-	if (minutes === 0) return `${remainingSeconds} second${remainingSeconds === 1 ? "" : "s"}`;
-	return `${minutes} minute${minutes === 1 ? "" : "s"} ${remainingSeconds} second${remainingSeconds === 1 ? "" : "s"}`;
+export function formatDuration(milliseconds: number): string {
+	const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
+	const days = Math.floor(totalSeconds / 86_400);
+	const hours = Math.floor((totalSeconds % 86_400) / 3_600);
+	const minutes = Math.floor((totalSeconds % 3_600) / 60);
+	const seconds = totalSeconds % 60;
+	const parts: string[] = [];
+	if (days > 0) parts.push(`${days} day${days === 1 ? "" : "s"}`);
+	if (hours > 0) parts.push(`${hours} hour${hours === 1 ? "" : "s"}`);
+	if (minutes > 0) parts.push(`${minutes} minute${minutes === 1 ? "" : "s"}`);
+	if (seconds > 0 || parts.length === 0) parts.push(`${seconds} second${seconds === 1 ? "" : "s"}`);
+	return parts.join(" ");
 }
 
 export function formatTokens(tokens: number | null | undefined): string {

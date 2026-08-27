@@ -20,6 +20,7 @@ A compact run looks like this:
 ```text
 bash printing test output
 │ 2 lines of output
+(Took 3 seconds.)
 
 read file src/index.ts
 │ 120 lines read
@@ -39,7 +40,7 @@ After a settled turn, `collapse` keeps the final answer and displays:
 ✓ spent 11 seconds · 4 tool calls · 1 file read · used context 6.4k (2%) · spent tokens 31.2k
 ```
 
-During execution, tools remain visible using Pi's native renderer. Pi's working indicator also shows elapsed time, for example `Working... (12s)`. `Ctrl+O` expands the folded native tool rows and restores the original thinking/tool presentation; pressing it again folds them back.
+During execution, tools remain visible using Pi's native renderer. Pi's working indicator shows friendly elapsed time, for example `Working... (1 minute 53 seconds)`. Each completed compact tool row also shows a duration such as `(Took 3 seconds.)`. `Ctrl+O` expands the folded native tool rows and restores the original thinking/tool presentation; pressing it again folds them back.
 
 The summary is turn-scoped:
 

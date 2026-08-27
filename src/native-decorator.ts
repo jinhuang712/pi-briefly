@@ -1,6 +1,7 @@
 import type { Theme, ToolRenderResultOptions } from "@earendil-works/pi-coding-agent";
 import { Box, type Component, Text } from "@earendil-works/pi-tui";
 import { compactCallParts, compactResultSummary } from "./brief.ts";
+import { formatDuration } from "./summary.ts";
 import type { ResolvedSlotConfig, ToolStyle } from "./types.ts";
 
 export interface RenderContext {
@@ -244,6 +245,7 @@ export function renderResultWithStyle(
 	policy: ResolvedSlotConfig,
 	brief: string,
 	_hint: string,
+	durationMs?: number,
 ): Component {
 	const state = stateOf(context);
 	const row = rowOf(context, theme, policy.tool);
@@ -255,7 +257,7 @@ export function renderResultWithStyle(
 		? new EmptyComponent()
 		: policy.style === "brief"
 			? new Text(
-					`\n${theme.fg(context.isError ? "error" : "toolOutput", `│ ${compactResultSummary(policy.tool, context.args, { ...result, isError: context.isError })}`)}`,
+					`${theme.fg(context.isError ? "error" : "toolOutput", `\n│ ${compactResultSummary(policy.tool, context.args, { ...result, isError: context.isError })}`)}${durationMs === undefined ? "" : `\n${theme.fg("dim", `(Took ${formatDuration(durationMs)}.)`)}`}`,
 					0,
 					0,
 				)

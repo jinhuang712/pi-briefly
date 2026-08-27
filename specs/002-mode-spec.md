@@ -31,6 +31,7 @@ Every tool keeps a native-like two-part row, with a concise operation line and a
 ```text
 bash printing test output
 │ 2 lines of output
+(Took 3 seconds.)
 
 read file src/index.ts
 │ 120 lines read
@@ -39,7 +40,9 @@ write file README.md
 │ 42 lines written · 980 chars
 ```
 
-The call line contains an italic tool name, a normal-weight purpose, and a dim short argument/path or script brief. The result line contains useful counts or completion details rather than the full output, diff, or file body. Errors remain visible on the result line. The row keeps Pi's native tool background, padding, and status colors. `Ctrl+O` is available for the native full presentation where Pi supports expansion.
+The call line contains an italic tool name, a normal-weight purpose, and a dim short argument/path or script brief. The result line contains useful counts or completion details rather than the full output, diff, or file body, followed by a friendly duration such as `(Took 1 minute 53 seconds.)`. Errors remain visible on the result line. The row keeps Pi's native tool background, padding, and status colors. `Ctrl+O` is available for the native full presentation where Pi supports expansion.
+
+Active working time uses the same day/hour/minute/second units instead of a seconds-only counter.
 
 ## 4. `collapse`
 

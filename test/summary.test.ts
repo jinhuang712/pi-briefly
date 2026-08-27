@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { formatCollapseSummary, formatTokens } from "../src/summary.ts";
+import { formatCollapseSummary, formatDuration, formatTokens } from "../src/summary.ts";
 
 test("formats the aggregate collapse summary", () => {
 	assert.equal(
@@ -12,6 +12,13 @@ test("formats the aggregate collapse summary", () => {
 		),
 		"spent 10 minutes 53 seconds · 10 tool calls · 5 files read · used context 200k (5%) · spent tokens 12.3k",
 	);
+});
+
+test("formats elapsed durations with friendly units", () => {
+	assert.equal(formatDuration(0), "0 seconds");
+	assert.equal(formatDuration(1_000), "1 second");
+	assert.equal(formatDuration(113_000), "1 minute 53 seconds");
+	assert.equal(formatDuration(90_061_000), "1 day 1 hour 1 minute 1 second");
 });
 
 test("formats unknown and singular summary values safely", () => {

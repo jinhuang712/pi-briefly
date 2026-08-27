@@ -22,7 +22,7 @@ import { toolBrief } from "../../src/brief.ts";
 import { LifecycleController } from "../../src/lifecycle.ts";
 import { renderCallWithStyle, renderResultWithStyle, type RenderContext } from "../../src/native-decorator.ts";
 import { resolveSlot } from "../../src/policy.ts";
-import { formatCollapseSummary } from "../../src/summary.ts";
+import { formatCollapseSummary, formatDuration } from "../../src/summary.ts";
 import { type BrieflyConfig, type PresetMode, toolNames } from "../../src/types.ts";
 
 type BuiltInTools = ReturnType<typeof createBuiltInTools>;
@@ -136,6 +136,7 @@ function registerToolOverride(
 				policy,
 				toolBrief(toolName, (currentContext.args ?? {}) as Record<string, unknown>),
 				keyHint("app.tools.expand", "to expand"),
+				lifecycle.durationMs(currentContext.toolCallId),
 			);
 		},
 	});
@@ -197,8 +198,8 @@ export default function piBriefly(pi: ExtensionAPI): void {
 		workingStartedAt = Date.now();
 		const update = (): void => {
 			if (workingStartedAt === undefined) return;
-			const elapsedSeconds = Math.floor((Date.now() - workingStartedAt) / 1000);
-			ctx.ui.setWorkingMessage(`Working... (${elapsedSeconds}s)`);
+			const elapsed = formatDuration(Date.now() - workingStartedAt);
+			ctx.ui.setWorkingMessage(`Working... (${elapsed})`);
 		};
 		update();
 		workingTimer = setInterval(update, 1000);

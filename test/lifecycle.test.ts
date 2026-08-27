@@ -8,6 +8,7 @@ test("lifecycle tracks active and completed calls", () => {
 	assert.deepEqual(lifecycle.view("one"), { isActive: true, isSettled: false });
 	lifecycle.complete("one", false);
 	assert.deepEqual(lifecycle.view("one"), { isActive: false, isSettled: false });
+	assert.equal((lifecycle.durationMs("one") ?? -1) >= 0, true);
 });
 
 test("prior collapsed rows stay settled for a new agent", () => {
