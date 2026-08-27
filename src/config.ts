@@ -1,10 +1,10 @@
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { isLocale } from "./i18n.ts";
 import type { BrieflyConfig, ConfigScope, Locale, PresetMode } from "./types.ts";
 
 const presetModes = new Set<PresetMode>(["visible", "compact", "collapse", "hidden"]);
-const locales = new Set<Locale>(["en", "zh", "auto"]);
 
 export const defaultConfig: BrieflyConfig = {
 	version: 1,
@@ -37,7 +37,7 @@ function parseConfig(value: unknown, source: string): { config: PartialConfig; w
 	} else if (value.mode !== undefined) {
 		warnings.push(`${source}.mode is invalid; using the previous mode`);
 	}
-	if (typeof value.locale === "string" && locales.has(value.locale as Locale)) {
+	if (isLocale(value.locale)) {
 		config.locale = value.locale as Locale;
 	} else if (value.locale !== undefined) {
 		warnings.push(`${source}.locale is invalid; using the previous locale`);

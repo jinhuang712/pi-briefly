@@ -17,7 +17,7 @@ import {
 	createWriteToolDefinition,
 	keyHint,
 } from "@earendil-works/pi-coding-agent";
-import { loadConfig, saveConfig, setMode } from "../../src/config.ts";
+import { loadConfig, saveConfig, setLocale, setMode } from "../../src/config.ts";
 import { toolBrief } from "../../src/brief.ts";
 import {
 	getCollapsedThinkingLabel,
@@ -34,7 +34,7 @@ import { LifecycleController } from "../../src/lifecycle.ts";
 import { renderCallWithStyle, renderResultWithStyle, type RenderContext } from "../../src/native-decorator.ts";
 import { resolveSlot } from "../../src/policy.ts";
 import { formatCollapseSummary, formatDuration, formatTook } from "../../src/summary.ts";
-import { type BrieflyConfig, type PresetMode, toolNames } from "../../src/types.ts";
+import { type BrieflyConfig, type Locale, type PresetMode, toolNames } from "../../src/types.ts";
 
 type BuiltInTools = ReturnType<typeof createBuiltInTools>;
 type AnyTool = Record<string, any>;
@@ -310,9 +310,8 @@ export default function piBriefly(pi: ExtensionAPI): void {
 				return;
 			}
 			if (command.startsWith("locale ")) {
-				const next = command.slice(7).trim() as import("../../src/types.ts").Locale;
+				const next = command.slice(7).trim() as Locale;
 				if (next === "en" || next === "zh" || next === "auto") {
-					const { setLocale } = await import("../../src/config.ts");
 					currentConfig = setLocale(currentConfig, next);
 					lifecycle.refresh();
 					refreshAssistantMessages(ctx);

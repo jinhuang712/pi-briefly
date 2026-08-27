@@ -1,7 +1,4 @@
-import type { BrieflyConfig, PresetMode } from "./types.ts";
-
-export type Locale = "en" | "zh" | "auto";
-export type ResolvedLocale = "en" | "zh";
+import type { BrieflyConfig, Locale, PresetMode, ResolvedLocale } from "./types.ts";
 
 export const DEFAULT_LOCALE: Locale = "auto";
 
@@ -17,17 +14,8 @@ export function detectSystemLocale(): ResolvedLocale {
 }
 
 export function resolveLocale(config: BrieflyConfig): ResolvedLocale {
-	const raw = (config as { locale?: Locale }).locale;
-	if (raw === "en" || raw === "zh") return raw;
-	if (raw === "auto") return detectSystemLocale();
-	if (raw === undefined) return detectSystemLocale();
-	return "en";
-}
-
-export function resolveLocaleFromValue(value: Locale | undefined): ResolvedLocale {
-	if (value === "en" || value === "zh") return value;
-	if (value === "auto" || value === undefined) return detectSystemLocale();
-	return "en";
+	if (config.locale === "en" || config.locale === "zh") return config.locale;
+	return detectSystemLocale();
 }
 
 const modeDescriptions: Record<ResolvedLocale, Record<PresetMode, string>> = {
