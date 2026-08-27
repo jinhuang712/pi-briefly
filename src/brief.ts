@@ -42,6 +42,41 @@ export function commandLabel(command: string): string | undefined {
 	return label || undefined;
 }
 
+function compactCommandBrief(command: string): string {
+	return shorten(
+		normalizedCommand(command)
+			.replace(/\\[nrt]/g, "")
+			.replace(/\\([\\'"$])/g, "$1"),
+		80,
+	);
+}
+
+export interface CompactCallParts {
+	purpose: string;
+	detail: string;
+}
+
+export function compactCallParts(tool: ToolName, args: Record<string, unknown>): CompactCallParts {
+	switch (tool) {
+		case "bash": {
+			const command = typeof args.command === "string" ? normalizedCommand(args.command) : "...";
+			return { purpose: summarizeCommand(command), detail: compactCommandBrief(command) };
+		}
+		case "read":
+			return { purpose: "reading", detail: shorten(typeof args.path === "string" ? args.path : "...", 100) };
+		case "write":
+			return { purpose: "writing", detail: shorten(typeof args.path === "string" ? args.path : "...", 100) };
+		case "edit":
+			return { purpose: "editing", detail: shorten(typeof args.path === "string" ? args.path : "...", 100) };
+		case "find":
+			return { purpose: "finding files", detail: shorten(typeof args.pattern === "string" ? args.pattern : "files", 100) };
+		case "grep":
+			return { purpose: "searching text", detail: shorten(typeof args.pattern === "string" ? args.pattern : "text", 100) };
+		case "ls":
+			return { purpose: "listing", detail: shorten(typeof args.path === "string" ? args.path : ".", 100) };
+	}
+}
+
 function resultText(result: ToolResultLike | undefined): string {
 	return result?.content
 		?.filter((item) => item.type === "text" && typeof item.text === "string")
@@ -120,22 +155,6 @@ export function summarizeCommand(command: string): string {
 }
 
 export function toolBrief(tool: ToolName, args: Record<string, unknown>): string {
-	switch (tool) {
-		case "bash": {
-			const command = typeof args.command === "string" ? normalizedCommand(args.command) : "...";
-			return `bash ${summarizeCommand(command)}`;
-		}
-		case "read":
-			return `read file ${typeof args.path === "string" ? args.path : "..."}`;
-		case "write":
-			return `write file ${typeof args.path === "string" ? args.path : "..."}`;
-		case "edit":
-			return `edit file ${typeof args.path === "string" ? args.path : "..."}`;
-		case "find":
-			return `find files ${typeof args.pattern === "string" ? args.pattern : "files"}`;
-		case "grep":
-			return `grep text ${typeof args.pattern === "string" ? args.pattern : "text"}`;
-		case "ls":
-			return `ls directory ${typeof args.path === "string" ? args.path : "."}`;
-	}
+	const parts = compactCallParts(tool, args);
+	return `${tool} ${parts.purpose} ${parts.detail}`.trim();
 }

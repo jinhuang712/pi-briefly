@@ -28,6 +28,8 @@ write file README.md
 │ 42 lines written · 980 chars
 ```
 
+The compact call line uses an italic tool name, normal-weight purpose, and dim argument/path or script brief. The row retains Pi's native tool background, padding, and status colors.
+
 ### Collapse output
 
 After a settled turn, `collapse` keeps the final answer and displays:

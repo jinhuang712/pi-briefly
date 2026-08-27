@@ -12,6 +12,7 @@ All notable changes to `pi-briefly` are documented here.
 
 - Cleaned escaped newlines and quotes from compact `bash` operation labels.
 - Restored native-like compact rows with Pi tool-title styling, native status backgrounds, operation lines, and concise result summaries for every built-in tool.
+- Styled compact calls with an italic tool name, normal-weight purpose, and dim argument/script brief.
 
 ## [0.1.0] - 2026-08-26
 

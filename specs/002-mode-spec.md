@@ -39,7 +39,7 @@ write file README.md
 │ 42 lines written · 980 chars
 ```
 
-The call line contains the tool name, purpose, and a short argument/path brief. The result line contains useful counts or completion details rather than the full output, diff, or file body. Errors remain visible on the result line. `Ctrl+O` is available for the native full presentation where Pi supports expansion.
+The call line contains an italic tool name, a normal-weight purpose, and a dim short argument/path or script brief. The result line contains useful counts or completion details rather than the full output, diff, or file body. Errors remain visible on the result line. The row keeps Pi's native tool background, padding, and status colors. `Ctrl+O` is available for the native full presentation where Pi supports expansion.
 
 ## 4. `collapse`
 

@@ -1,6 +1,6 @@
 import type { Theme, ToolRenderResultOptions } from "@earendil-works/pi-coding-agent";
 import { Box, type Component, Text } from "@earendil-works/pi-tui";
-import { compactResultSummary } from "./brief.ts";
+import { compactCallParts, compactResultSummary } from "./brief.ts";
 import type { ResolvedSlotConfig, ToolStyle } from "./types.ts";
 
 export interface RenderContext {
@@ -182,6 +182,12 @@ function stateOf(context: RenderContext): DecoratedState {
 	return context.state as DecoratedState;
 }
 
+function compactCallText(theme: Theme, tool: ResolvedSlotConfig["tool"], args: unknown, fallback: string): string {
+	const parts = compactCallParts(tool, (args ?? {}) as Record<string, unknown>);
+	const detail = parts.detail ? ` ${theme.fg("dim", parts.detail)}` : "";
+	return `${theme.italic(theme.fg("toolTitle", tool))} ${theme.fg("toolTitle", parts.purpose)}${detail}` || fallback;
+}
+
 function nativeContext(context: RenderContext, lastComponent: Component | undefined): RenderContext {
 	return { ...context, lastComponent };
 }
@@ -216,7 +222,7 @@ export function renderCallWithStyle(
 	const callComponent = policy.style === "hidden"
 		? new EmptyComponent()
 		: policy.style === "brief"
-			? new Text(theme.fg("toolTitle", theme.bold(brief)), 0, 0)
+			? new Text(compactCallText(theme, policy.tool, args, brief), 0, 0)
 			: policy.style === "full"
 				? inner ?? new Text(brief, 0, 0)
 				: (() => {

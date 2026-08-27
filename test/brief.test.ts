@@ -14,9 +14,13 @@ test("excerpt preserves code lines and marks omitted content", () => {
 });
 
 test("briefs tools by purpose", () => {
-	assert.equal(toolBrief("bash", { command: "git status" }), "bash checking git status");
-	assert.equal(toolBrief("read", { path: "src/index.ts" }), "read file src/index.ts");
-	assert.equal(toolBrief("write", { path: "src/index.ts" }), "write file src/index.ts");
+	assert.equal(toolBrief("bash", { command: "git status" }), "bash checking git status git status");
+	assert.equal(toolBrief("read", { path: "src/index.ts" }), "read reading src/index.ts");
+	assert.equal(toolBrief("write", { path: "src/index.ts" }), "write writing src/index.ts");
+	assert.equal(
+		toolBrief("bash", { command: "printf 'elapsed-time test complete\\n'" }),
+		"bash printing elapsed-time test complete printf 'elapsed-time test complete'",
+	);
 });
 
 test("summarizes compact tool results", () => {
