@@ -1,13 +1,15 @@
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { BrieflyConfig, ConfigScope, PresetMode } from "./types.ts";
+import type { BrieflyConfig, ConfigScope, Locale, PresetMode } from "./types.ts";
 
 const presetModes = new Set<PresetMode>(["visible", "compact", "collapse", "hidden"]);
+const locales = new Set<Locale>(["en", "zh", "auto"]);
 
 export const defaultConfig: BrieflyConfig = {
 	version: 1,
 	mode: "visible",
+	locale: "auto",
 };
 
 export interface LoadedConfig {
@@ -16,7 +18,7 @@ export interface LoadedConfig {
 	paths: { global: string; project: string };
 }
 
-type PartialConfig = { mode?: PresetMode };
+type PartialConfig = { mode?: PresetMode; locale?: Locale };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -34,6 +36,11 @@ function parseConfig(value: unknown, source: string): { config: PartialConfig; w
 		config.mode = value.mode as PresetMode;
 	} else if (value.mode !== undefined) {
 		warnings.push(`${source}.mode is invalid; using the previous mode`);
+	}
+	if (typeof value.locale === "string" && locales.has(value.locale as Locale)) {
+		config.locale = value.locale as Locale;
+	} else if (value.locale !== undefined) {
+		warnings.push(`${source}.locale is invalid; using the previous locale`);
 	}
 	return { config, warnings };
 }
@@ -62,6 +69,7 @@ export function loadConfig(cwd: string): LoadedConfig {
 	const config: BrieflyConfig = {
 		version: 1,
 		mode: project.config.mode ?? global.config.mode ?? defaultConfig.mode,
+		locale: project.config.locale ?? global.config.locale ?? defaultConfig.locale,
 	};
 	return { config, warnings: [...global.warnings, ...project.warnings], paths };
 }
@@ -70,7 +78,7 @@ export function saveConfig(cwd: string, scope: ConfigScope, config: BrieflyConfi
 	const path = configPaths(cwd)[scope];
 	mkdirSync(join(path, ".."), { recursive: true });
 	const temporaryPath = `${path}.tmp-${process.pid}`;
-	writeFileSync(temporaryPath, `${JSON.stringify({ version: 1, mode: config.mode }, null, 2)}\n`, {
+	writeFileSync(temporaryPath, `${JSON.stringify({ version: 1, mode: config.mode, locale: config.locale }, null, 2)}\n`, {
 		encoding: "utf8",
 		mode: 0o600,
 	});
@@ -79,5 +87,9 @@ export function saveConfig(cwd: string, scope: ConfigScope, config: BrieflyConfi
 }
 
 export function setMode(config: BrieflyConfig, mode: PresetMode): BrieflyConfig {
-	return { version: 1, mode };
+	return { version: 1, mode, locale: config.locale };
+}
+
+export function setLocale(config: BrieflyConfig, locale: Locale): BrieflyConfig {
+	return { version: 1, mode: config.mode, locale };
 }
