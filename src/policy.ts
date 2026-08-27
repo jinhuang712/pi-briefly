@@ -25,10 +25,16 @@ export function resolveSlot(
 	slot: ToolSlot,
 	lifecycle: LifecycleView,
 ): ResolvedSlotConfig {
+	// Edit diffs and new-file write previews are richer than a one-line
+	// summary. Keep their native renderers in compact mode, then apply a
+	// visual limiter instead of replacing the content.
+	const style = config.mode === "compact" && (tool === "edit" || tool === "write")
+		? "compact"
+		: presetStyle(config.mode, lifecycle);
 	return {
 		tool,
 		slot,
-		style: presetStyle(config.mode, lifecycle),
+		style,
 	};
 }
 
