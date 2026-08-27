@@ -19,17 +19,28 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { loadConfig, saveConfig, setMode } from "../../src/config.ts";
 import { toolBrief } from "../../src/brief.ts";
+import {
+	getCollapsedThinkingLabel,
+	getModeDescription,
+	getSelectorTitle,
+	notifyCurrentMode,
+	notifyModeChanged,
+	notifyReloaded,
+	notifyReset,
+	resolveLocale,
+	workingMessage,
+} from "../../src/i18n.ts";
 import { LifecycleController } from "../../src/lifecycle.ts";
 import { renderCallWithStyle, renderResultWithStyle, type RenderContext } from "../../src/native-decorator.ts";
 import { resolveSlot } from "../../src/policy.ts";
-import { formatCollapseSummary, formatDuration } from "../../src/summary.ts";
+import { formatCollapseSummary, formatDuration, formatTook } from "../../src/summary.ts";
 import { type BrieflyConfig, type PresetMode, toolNames } from "../../src/types.ts";
 
 type BuiltInTools = ReturnType<typeof createBuiltInTools>;
 type AnyTool = Record<string, any>;
 
 const COLLAPSE_SUMMARY_TYPE = "pi-briefly-collapse-summary";
-const COLLAPSED_THINKING_LABEL = "… intermediate steps collapsed";
+const TURN_DURATION_TYPE = "pi-briefly-turn-duration";
 
 function createBuiltInTools(cwd: string) {
 	return {
@@ -62,18 +73,23 @@ function isToolName(value: string): value is ToolName {
 	return (toolNames as readonly string[]).includes(value);
 }
 
-function collapseSummary(ctx: any, lifecycle: LifecycleController, turnTokens: number): string {
+function collapseSummary(ctx: any, lifecycle: LifecycleController, turnTokens: number, config: BrieflyConfig): string {
 	const stats = lifecycle.statistics();
 	return formatCollapseSummary(
 		stats,
 		Date.now() - stats.startedAt,
 		ctx.getContextUsage?.(),
 		turnTokens,
+		resolveLocale(config),
 	);
 }
 
 function renderContext(context: any): RenderContext {
 	return context as RenderContext;
+}
+
+function useNativeExpandedPresentation(mode: PresetMode, toolName: ToolName, expanded: boolean): boolean {
+	return expanded && (mode === "collapse" || (mode === "compact" && (toolName === "edit" || toolName === "write")));
 }
 
 function registerToolOverride(
@@ -98,8 +114,9 @@ function registerToolOverride(
 			onToolsExpanded(currentContext.expanded);
 			lifecycle.ensure(currentContext.toolCallId, toolName, currentContext.args);
 			lifecycle.registerInvalidation(currentContext.toolCallId, currentContext.invalidate);
+			const mode = getConfig().mode;
 			const resolvedPolicy = resolveSlot(getConfig(), toolName, "call", lifecycle.view(currentContext.toolCallId));
-			const policy = getConfig().mode === "collapse" && currentContext.expanded
+			const policy = useNativeExpandedPresentation(mode, toolName, currentContext.expanded)
 				? { ...resolvedPolicy, style: "full" as const }
 				: resolvedPolicy;
 			const renderArgs = toolName === "write" && policy.showContent === false
@@ -107,15 +124,17 @@ function registerToolOverride(
 				: toolName === "bash" && policy.showCommand === false
 					? { ...((args ?? {}) as Record<string, unknown>), command: "..." }
 					: args;
+			const callLocale = resolveLocale(getConfig());
 			return renderCallWithStyle(
 				initialTool.renderCall,
 				renderArgs,
 				theme,
 				currentContext,
 				policy,
-				toolBrief(toolName, (args ?? {}) as Record<string, unknown>),
+				toolBrief(toolName, (args ?? {}) as Record<string, unknown>, callLocale),
 				keyHint("app.tools.expand", "to expand"),
 				undefined,
+				callLocale,
 			);
 		},
 		renderResult(result: any, options: any, theme: Theme, context: any) {
@@ -123,10 +142,12 @@ function registerToolOverride(
 			onToolsExpanded(currentContext.expanded);
 			lifecycle.ensure(currentContext.toolCallId, toolName, currentContext.args);
 			lifecycle.registerInvalidation(currentContext.toolCallId, currentContext.invalidate);
+			const mode = getConfig().mode;
 			const resolvedPolicy = resolveSlot(getConfig(), toolName, "result", lifecycle.view(currentContext.toolCallId));
-			const policy = getConfig().mode === "collapse" && currentContext.expanded
+			const policy = useNativeExpandedPresentation(mode, toolName, currentContext.expanded)
 				? { ...resolvedPolicy, style: "full" as const }
 				: resolvedPolicy;
+			const resultLocale = resolveLocale(getConfig());
 			return renderResultWithStyle(
 				initialTool.renderResult,
 				result,
@@ -134,9 +155,9 @@ function registerToolOverride(
 				theme,
 				currentContext,
 				policy,
-				toolBrief(toolName, (currentContext.args ?? {}) as Record<string, unknown>),
+				toolBrief(toolName, (currentContext.args ?? {}) as Record<string, unknown>, resultLocale),
 				keyHint("app.tools.expand", "to expand"),
-				lifecycle.durationMs(currentContext.toolCallId),
+				resultLocale,
 			);
 		},
 	});
@@ -163,9 +184,14 @@ export default function piBriefly(pi: ExtensionAPI): void {
 			0,
 		);
 	});
+	pi.registerEntryRenderer(TURN_DURATION_TYPE, (entry, _options, theme) => {
+		const data = entry.data as { durationMs?: number; locale?: string };
+		const locale = (data.locale === "zh" ? "zh" : data.locale === "en" ? "en" : resolveLocale(currentConfig)) as "en" | "zh";
+		return new Text(theme.fg("dim", formatTook(data.durationMs ?? 0, locale)), 2, 0);
+	});
 	pi.registerMarkdownTransformer((markdown, { messageType }) => {
 		if (currentConfig.mode === "collapse" && lifecycle.isSettled() && !toolsExpanded && messageType === "assistant-thinking") {
-			return COLLAPSED_THINKING_LABEL;
+			return getCollapsedThinkingLabel(resolveLocale(currentConfig));
 		}
 		return markdown;
 	});
@@ -198,8 +224,9 @@ export default function piBriefly(pi: ExtensionAPI): void {
 		workingStartedAt = Date.now();
 		const update = (): void => {
 			if (workingStartedAt === undefined) return;
-			const elapsed = formatDuration(Date.now() - workingStartedAt);
-			ctx.ui.setWorkingMessage(`Working... (${elapsed})`);
+			const locale = resolveLocale(currentConfig);
+			const elapsed = formatDuration(Date.now() - workingStartedAt, locale);
+			ctx.ui.setWorkingMessage(workingMessage(locale, elapsed));
 		};
 		update();
 		workingTimer = setInterval(update, 1000);
@@ -227,12 +254,16 @@ export default function piBriefly(pi: ExtensionAPI): void {
 	pi.on("agent_settled", (_event, ctx) => {
 		stopWorkingTimer(ctx);
 		const stats = lifecycle.statistics();
-		const summary = collapseSummary(ctx, lifecycle, turnTokens);
+		const turnDurationMs = Date.now() - stats.startedAt;
+		const summary = collapseSummary(ctx, lifecycle, turnTokens, currentConfig);
 		lifecycle.settleAgent(summary);
 		if (currentConfig.mode === "collapse") {
 			// Rebuild assistant message components so the settled thinking blocks
 			// run through the collapse transformer as well as tool rows.
 			refreshAssistantMessages(ctx);
+		}
+		if (currentConfig.mode === "compact" && stats.toolCalls > 0) {
+			pi.appendEntry(TURN_DURATION_TYPE, { durationMs: turnDurationMs, locale: resolveLocale(currentConfig) });
 		}
 		if (currentConfig.mode === "collapse" && stats.toolCalls > 0) {
 			pi.appendEntry(COLLAPSE_SUMMARY_TYPE, { summary });
@@ -251,6 +282,7 @@ export default function piBriefly(pi: ExtensionAPI): void {
 		description: "Choose or inspect pi-briefly presentation mode",
 		handler: async (args, ctx) => {
 			const command = args.trim();
+			const locale = resolveLocale(currentConfig);
 			if (command === "show") {
 				ctx.ui.notify(JSON.stringify(currentConfig, null, 2), "info");
 				return;
@@ -258,7 +290,7 @@ export default function piBriefly(pi: ExtensionAPI): void {
 			if (command === "reload") {
 				reloadConfig(ctx.cwd, (message, level) => ctx.ui.notify(message, level));
 				refreshAssistantMessages(ctx);
-				ctx.ui.notify(`pi-briefly reloaded in ${currentConfig.mode} mode`, "info");
+				ctx.ui.notify(notifyReloaded(locale, currentConfig.mode), "info");
 				return;
 			}
 			if (command === "reset") {
@@ -266,7 +298,7 @@ export default function piBriefly(pi: ExtensionAPI): void {
 				lifecycle.refresh();
 				refreshAssistantMessages(ctx);
 				saveConfig(ctx.cwd, "project", currentConfig);
-				ctx.ui.notify("pi-briefly reset to visible mode", "info");
+				ctx.ui.notify(notifyReset(locale), "info");
 				return;
 			}
 			if (command && ["visible", "compact", "collapse", "hidden"].includes(command)) {
@@ -274,27 +306,37 @@ export default function piBriefly(pi: ExtensionAPI): void {
 				lifecycle.refresh();
 				refreshAssistantMessages(ctx);
 				saveConfig(ctx.cwd, "project", currentConfig);
-				ctx.ui.notify(`pi-briefly mode: ${currentConfig.mode}`, "info");
+				ctx.ui.notify(notifyModeChanged(locale, currentConfig.mode), "info");
 				return;
+			}
+			if (command.startsWith("locale ")) {
+				const next = command.slice(7).trim() as import("../../src/types.ts").Locale;
+				if (next === "en" || next === "zh" || next === "auto") {
+					const { setLocale } = await import("../../src/config.ts");
+					currentConfig = setLocale(currentConfig, next);
+					lifecycle.refresh();
+					refreshAssistantMessages(ctx);
+					saveConfig(ctx.cwd, "project", currentConfig);
+					ctx.ui.notify(locale === "zh" ? `语言已切换为 ${next}` : `Locale set to ${next}`, "info");
+					return;
+				}
 			}
 			if (!ctx.hasUI) {
-				ctx.ui.notify(`Current pi-briefly mode: ${currentConfig.mode}`, "info");
+				ctx.ui.notify(notifyCurrentMode(locale, currentConfig.mode), "info");
 				return;
 			}
-			const selected = await ctx.ui.select("pi-briefly mode", [
-				"visible",
-				"compact",
-				"collapse",
-				"hidden",
-			]);
-			if (!selected) return;
-			const confirmed = await ctx.ui.confirm("Change pi-briefly mode?", `Use ${selected}?`);
-			if (!confirmed) return;
-			currentConfig = setMode(currentConfig, selected as PresetMode);
+			const options = (["visible", "compact", "collapse", "hidden"] as PresetMode[]).map(
+				(mode) => `${mode.padEnd(8)} — ${getModeDescription(locale, mode)}`,
+			);
+			const selectedRaw = await ctx.ui.select(getSelectorTitle(locale), options);
+			if (!selectedRaw) return;
+			const selected = selectedRaw.split("—")[0].trim() as PresetMode;
+			if (!["visible", "compact", "collapse", "hidden"].includes(selected)) return;
+			currentConfig = setMode(currentConfig, selected);
 			lifecycle.refresh();
 			refreshAssistantMessages(ctx);
 			saveConfig(ctx.cwd, "project", currentConfig);
-			ctx.ui.notify(`pi-briefly mode: ${currentConfig.mode}`, "info");
+			ctx.ui.notify(notifyModeChanged(resolveLocale(currentConfig), currentConfig.mode), "info");
 		},
 	});
 }
