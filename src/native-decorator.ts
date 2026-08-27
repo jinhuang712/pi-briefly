@@ -74,6 +74,8 @@ class ToolRowComponent implements Component {
 	private withBackground: boolean;
 	private call?: Component;
 	private result?: Component;
+	private boxedCall?: Component;
+	private boxedResult?: Component;
 	private isPartial = true;
 	private isError = false;
 	private flat = false;
@@ -101,6 +103,15 @@ class ToolRowComponent implements Component {
 		this.result = component;
 	}
 
+	private syncBoxChildren(): void {
+		if (this.boxedCall === this.call && this.boxedResult === this.result) return;
+		this.box.clear();
+		if (this.call) this.box.addChild(this.call);
+		if (this.result) this.box.addChild(this.result);
+		this.boxedCall = this.call;
+		this.boxedResult = this.result;
+	}
+
 	render(width: number): string[] {
 		if (!this.withBackground || this.flat) {
 			return [...(this.call?.render(width) ?? []), ...(this.result?.render(width) ?? [])];
@@ -110,9 +121,7 @@ class ToolRowComponent implements Component {
 			if (this.isError) return this.theme.bg("toolErrorBg", text);
 			return this.theme.bg("toolSuccessBg", text);
 		});
-		this.box.clear();
-		if (this.call) this.box.addChild(this.call);
-		if (this.result) this.box.addChild(this.result);
+		this.syncBoxChildren();
 		return this.box.render(width);
 	}
 
