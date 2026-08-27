@@ -45,9 +45,11 @@ The call line contains a styled tool name, purpose, and dim short argument/path 
 
 Active working time uses the same day/hour/minute/second units instead of a seconds-only counter.
 
+Assistant thinking stays fully visible while its message streams. The moment the message completes — always before the turn ends — each thinking block folds into a one-line brief (the thinking's first meaningful line); `Ctrl+O` restores the native thinking text.
+
 ## 4. `collapse`
 
-During an agent run, tool calls use the native `visible` presentation. After the agent is settled:
+During an agent run, tool calls use the native `visible` presentation while thinking blocks are condensed to one-line briefs as they stream. After the agent is settled:
 
 - the completed tool call/result rows are hidden
 - intermediate thinking/planning content is replaced by `… intermediate steps collapsed`
@@ -55,23 +57,28 @@ During an agent run, tool calls use the native `visible` presentation. After the
 - the summary is a flat, single-line component without the native tool box/padding
 - the final assistant response remains unchanged
 
-`Ctrl+O` expands the underlying native tool rows after they have been collapsed.
+`Ctrl+O` expands the underlying native tool rows and restores full thinking after they have been collapsed.
 
 The transition occurs at `agent_settled`, not merely at `turn_end`, so retries and compaction are not hidden prematurely.
 
 ## 5. `hidden`
 
-No process representation is rendered:
+No process detail is rendered, but the transcript must never look like a blank gap. Each hidden thinking block leaves a one-line stub (`… hidden` / `… 已隐藏`); each turn that involved tools appends an aggregate stub (`… 4 steps hidden` / `… 已隐藏 4 个步骤`). `Ctrl+O` restores the native thinking text and the native tool rows. Tool execution and model context are unaffected.
 
-- no call
-- no partial state
-- no result
-- no brief
-- no empty shell row
+## 6. Thinking presentation
 
-Tool execution and model context are unaffected.
+Models such as GLM, Claude, or GPT-5 can emit very long reasoning blocks. Assistant thinking is a presentation concern and follows the same immutable presets:
 
-## 6. Precedence
+| Mode | While the message streams | Message complete | Run settled | `Ctrl+O` expanded |
+| --- | --- | --- | --- | --- |
+| `visible` | native full | native full | native full | native |
+| `compact` | native full thinking | one-line brief | one-line brief | native full |
+| `collapse` | one-line brief | one-line brief | `… intermediate steps collapsed` | native full |
+| `hidden` | `… hidden` stub | `… hidden` stub | one-line aggregate stub | native full |
+
+The condensing reuses Pi's `assistant-thinking` markdown transformer and its streaming flag; Pi rerenders the message when streaming completes, so the fold happens without touching model context.
+
+## 7. Precedence
 
 ```text
 preset mode
@@ -80,7 +87,7 @@ preset mode
 
 All modes are fixed presets; there is no per-tool override layer.
 
-## 7. State transitions
+## 8. State transitions
 
 ```text
 idle -> running -> completed

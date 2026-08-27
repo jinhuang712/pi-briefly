@@ -43,6 +43,11 @@ const collapsedThinkingLabel: Record<ResolvedLocale, string> = {
 	zh: "… 中间步骤已折叠",
 };
 
+const thinkingBriefLabel: Record<ResolvedLocale, string> = {
+	en: "… thinking",
+	zh: "… 思考过程",
+};
+
 export function getModeDescription(locale: ResolvedLocale, mode: PresetMode): string {
 	return modeDescriptions[locale][mode];
 }
@@ -51,8 +56,39 @@ export function getSelectorTitle(locale: ResolvedLocale): string {
 	return selectorTitle[locale];
 }
 
+const currentModeSuffix: Record<ResolvedLocale, string> = {
+	en: "(current)",
+	zh: "（当前）",
+};
+
+export function getCurrentModeSuffix(locale: ResolvedLocale): string {
+	return currentModeSuffix[locale];
+}
+
 export function getCollapsedThinkingLabel(locale: ResolvedLocale): string {
 	return collapsedThinkingLabel[locale];
+}
+
+export function getThinkingBriefLabel(locale: ResolvedLocale): string {
+	return thinkingBriefLabel[locale];
+}
+
+const hiddenThinkingStub: Record<ResolvedLocale, string> = {
+	en: "… hidden",
+	zh: "… 已隐藏",
+};
+
+export function getHiddenThinkingStub(locale: ResolvedLocale): string {
+	return hiddenThinkingStub[locale];
+}
+
+const hiddenToolsSummary: Record<ResolvedLocale, (count: number) => string> = {
+	en: (count) => `… ${count} step${count === 1 ? "" : "s"} hidden`,
+	zh: (count) => `… 已隐藏 ${count} 个步骤`,
+};
+
+export function getHiddenToolsSummary(locale: ResolvedLocale, count: number): string {
+	return hiddenToolsSummary[locale](count);
 }
 
 export function notifyReloaded(locale: ResolvedLocale, mode: PresetMode): string {

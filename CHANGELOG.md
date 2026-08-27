@@ -7,6 +7,7 @@ All notable changes to `pi-briefly` are documented here.
 ### Added
 
 - Friendly elapsed time on Pi's working indicator, displayed as `Working... (1 minute 53 seconds)` during each active turn.
+- Thinking presentation per preset: `compact` keeps the thinking process fully visible while its message streams and folds each block to a one-line brief (its first meaningful line) as soon as the message completes, before the turn ends; `collapse` shows one-line briefs during the run and the collapsed label after settlement; `hidden` leaves a one-line stub and an aggregate step count so the transcript never looks like a blank gap; `visible` keeps native full rendering. `Ctrl+O` reveals the native content in every condensed mode.
 
 ### Fixed
 

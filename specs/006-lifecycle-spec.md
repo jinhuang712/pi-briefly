@@ -64,7 +64,7 @@ Store only serializable identifiers/timestamps plus short-lived invalidation cal
 
 ## 3. Collapse policy
 
-Individual rows use the native visible renderer while the agent is active. Once settled, intermediate thinking is replaced by `… intermediate steps collapsed`, a durable flat aggregate summary entry is appended after the final assistant response, and every tool row is hidden. Ctrl+O expands the underlying native tool rows and can collapse them again. Existing rows must rerender without executing the tool again.
+Individual rows and thinking blocks use the native visible renderer while the agent is active. Once settled, intermediate thinking is replaced by `… intermediate steps collapsed`, a durable flat aggregate summary entry is appended after the final assistant response, and every tool row is hidden. Ctrl+O expands the underlying native tool rows and restores full thinking, and can collapse them again. Existing rows must rerender without executing the tool again. In hidden mode every hidden block leaves a one-line stub so the transcript never collapses to a blank gap; Ctrl+O reveals the native content.
 
 ## 4. Invalidation
 

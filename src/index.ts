@@ -21,6 +21,10 @@ import { loadConfig, saveConfig, setLocale, setMode } from "./config.ts";
 import { toolBrief } from "./brief.ts";
 import {
 	getCollapsedThinkingLabel,
+	getCurrentModeSuffix,
+	getHiddenThinkingStub,
+	getHiddenToolsSummary,
+	getThinkingBriefLabel,
 	getModeDescription,
 	getSelectorTitle,
 	notifyCurrentMode,
@@ -34,6 +38,7 @@ import { LifecycleController } from "./lifecycle.ts";
 import { renderCallWithStyle, renderResultWithStyle, type RenderContext } from "./native-decorator.ts";
 import { resolveSlot } from "./policy.ts";
 import { formatCollapseSummary, formatDuration, formatTook } from "./summary.ts";
+import { resolveThinkingPresentation, thinkingBrief } from "./thinking.ts";
 import { type BrieflyConfig, type Locale, type PresetMode, toolNames } from "./types.ts";
 
 type BuiltInTools = ReturnType<typeof createBuiltInTools>;
@@ -41,6 +46,7 @@ type AnyTool = Record<string, any>;
 
 const COLLAPSE_SUMMARY_TYPE = "pi-briefly-collapse-summary";
 const TURN_DURATION_TYPE = "pi-briefly-turn-duration";
+const HIDDEN_SUMMARY_TYPE = "pi-briefly-hidden-summary";
 
 function createBuiltInTools(cwd: string) {
 	return {
@@ -89,7 +95,9 @@ function renderContext(context: any): RenderContext {
 }
 
 function useNativeExpandedPresentation(mode: PresetMode, toolName: ToolName, expanded: boolean): boolean {
-	return expanded && (mode === "collapse" || (mode === "compact" && (toolName === "edit" || toolName === "write")));
+	if (!expanded) return false;
+	if (mode === "collapse" || mode === "hidden") return true;
+	return mode === "compact" && (toolName === "edit" || toolName === "write");
 }
 
 function registerToolOverride(
@@ -189,11 +197,26 @@ export default function piBriefly(pi: ExtensionAPI): void {
 		const locale = (data.locale === "zh" ? "zh" : data.locale === "en" ? "en" : resolveLocale(currentConfig)) as "en" | "zh";
 		return new Text(theme.fg("dim", formatTook(data.durationMs ?? 0, locale)), 2, 0);
 	});
-	pi.registerMarkdownTransformer((markdown, { messageType }) => {
-		if (currentConfig.mode === "collapse" && lifecycle.isSettled() && !toolsExpanded && messageType === "assistant-thinking") {
-			return getCollapsedThinkingLabel(resolveLocale(currentConfig));
-		}
-		return markdown;
+	pi.registerEntryRenderer(HIDDEN_SUMMARY_TYPE, (entry, { expanded }, theme) => {
+		const data = entry.data as { count?: number; locale?: string };
+		const locale = (data.locale === "zh" ? "zh" : data.locale === "en" ? "en" : resolveLocale(currentConfig)) as "en" | "zh";
+		const text = getHiddenToolsSummary(locale, data.count ?? 0);
+		const hint = keyHint("app.tools.expand", expanded ? "to collapse" : "to expand");
+		return new Text(`${theme.fg("dim", text)} ${theme.fg("dim", `(${hint})`)}`, 0, 0);
+	});
+	pi.registerMarkdownTransformer((markdown, { messageType, isStreaming }) => {
+		if (messageType !== "assistant-thinking") return markdown;
+		const presentation = resolveThinkingPresentation(currentConfig.mode, {
+			streaming: isStreaming,
+			settled: lifecycle.isSettled(),
+			expanded: toolsExpanded,
+		});
+		if (presentation === "native") return markdown;
+		if (presentation === "suppressed") return "";
+		const locale = resolveLocale(currentConfig);
+		if (presentation === "collapsed") return getCollapsedThinkingLabel(locale);
+		if (presentation === "hiddenStub") return getHiddenThinkingStub(locale);
+		return thinkingBrief(markdown, getThinkingBriefLabel(locale));
 	});
 	const reloadConfig = (cwd: string, notify?: (message: string, level: "info" | "warning" | "error") => void): void => {
 		const loaded = loadConfig(cwd);
@@ -257,9 +280,10 @@ export default function piBriefly(pi: ExtensionAPI): void {
 		const turnDurationMs = Date.now() - stats.startedAt;
 		const summary = collapseSummary(ctx, lifecycle, turnTokens, currentConfig);
 		lifecycle.settleAgent(summary);
-		if (currentConfig.mode === "collapse") {
-			// Rebuild assistant message components so the settled thinking blocks
-			// run through the collapse transformer as well as tool rows.
+		if (currentConfig.mode !== "visible") {
+			// Rebuild assistant message components so settled thinking blocks run
+			// through the condensing transformer in every non-visible mode, along
+			// with tool rows in collapse mode.
 			refreshAssistantMessages(ctx);
 		}
 		if (currentConfig.mode === "compact" && stats.toolCalls > 0) {
@@ -267,6 +291,9 @@ export default function piBriefly(pi: ExtensionAPI): void {
 		}
 		if (currentConfig.mode === "collapse" && stats.toolCalls > 0) {
 			pi.appendEntry(COLLAPSE_SUMMARY_TYPE, { summary });
+		}
+		if (currentConfig.mode === "hidden" && stats.toolCalls > 0) {
+			pi.appendEntry(HIDDEN_SUMMARY_TYPE, { count: stats.toolCalls, locale: resolveLocale(currentConfig) });
 		}
 	});
 	pi.on("session_shutdown", (_event, ctx) => {
@@ -324,13 +351,24 @@ export default function piBriefly(pi: ExtensionAPI): void {
 				ctx.ui.notify(notifyCurrentMode(locale, currentConfig.mode), "info");
 				return;
 			}
-			const options = (["visible", "compact", "collapse", "hidden"] as PresetMode[]).map(
-				(mode) => `${mode.padEnd(8)} — ${getModeDescription(locale, mode)}`,
-			);
-			const selectedRaw = await ctx.ui.select(getSelectorTitle(locale), options);
+			const modes: PresetMode[] = ["visible", "compact", "collapse", "hidden"];
+			// The active mode is listed first, marked, and named in the title so the
+			// user can always tell which mode is selected before switching.
+			const currentMode = currentConfig.mode;
+			const ordered = [currentMode, ...modes.filter((mode) => mode !== currentMode)];
+			const suffix = getCurrentModeSuffix(locale);
+			const modeByOption = new Map<string, PresetMode>();
+			const options = ordered.map((mode) => {
+				const option = mode === currentMode
+					? `✓ ${mode.padEnd(8)} — ${getModeDescription(locale, mode)} ${suffix}`
+					: `  ${mode.padEnd(8)} — ${getModeDescription(locale, mode)}`;
+				modeByOption.set(option, mode);
+				return option;
+			});
+			const selectedRaw = await ctx.ui.select(`${getSelectorTitle(locale)} — ${currentMode}`, options);
 			if (!selectedRaw) return;
-			const selected = selectedRaw.split("—")[0].trim() as PresetMode;
-			if (!["visible", "compact", "collapse", "hidden"].includes(selected)) return;
+			const selected = modeByOption.get(selectedRaw);
+			if (!selected || !modes.includes(selected)) return;
 			currentConfig = setMode(currentConfig, selected);
 			lifecycle.refresh();
 			refreshAssistantMessages(ctx);
