@@ -17,8 +17,8 @@ import {
 	createWriteToolDefinition,
 	keyHint,
 } from "@earendil-works/pi-coding-agent";
-import { loadConfig, saveConfig, setLocale, setMode } from "../../src/config.ts";
-import { toolBrief } from "../../src/brief.ts";
+import { loadConfig, saveConfig, setLocale, setMode } from "./config.ts";
+import { toolBrief } from "./brief.ts";
 import {
 	getCollapsedThinkingLabel,
 	getModeDescription,
@@ -29,12 +29,12 @@ import {
 	notifyReset,
 	resolveLocale,
 	workingMessage,
-} from "../../src/i18n.ts";
-import { LifecycleController } from "../../src/lifecycle.ts";
-import { renderCallWithStyle, renderResultWithStyle, type RenderContext } from "../../src/native-decorator.ts";
-import { resolveSlot } from "../../src/policy.ts";
-import { formatCollapseSummary, formatDuration, formatTook } from "../../src/summary.ts";
-import { type BrieflyConfig, type Locale, type PresetMode, toolNames } from "../../src/types.ts";
+} from "./i18n.ts";
+import { LifecycleController } from "./lifecycle.ts";
+import { renderCallWithStyle, renderResultWithStyle, type RenderContext } from "./native-decorator.ts";
+import { resolveSlot } from "./policy.ts";
+import { formatCollapseSummary, formatDuration, formatTook } from "./summary.ts";
+import { type BrieflyConfig, type Locale, type PresetMode, toolNames } from "./types.ts";
 
 type BuiltInTools = ReturnType<typeof createBuiltInTools>;
 type AnyTool = Record<string, any>;

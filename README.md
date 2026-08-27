@@ -126,8 +126,8 @@ npm test
 Run Pi directly from the repository:
 
 ```bash
-PI_OFFLINE=1 pi --no-session --no-approve \
-  --extension .pi/extensions/pi-briefly.ts \
+PI_OFFLINE=1 pi --no-session --no-extensions \
+  --extension ./src/index.ts \
   --tools bash,read,write,edit,find,grep,ls \
   --mode json \
   -p 'Run the pi-briefly smoke test and stop.'
