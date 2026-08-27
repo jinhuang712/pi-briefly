@@ -1,4 +1,4 @@
-import type { ToolName } from "./types.ts";
+import type { ResolvedLocale, ToolName } from "./types.ts";
 
 export interface ToolResultLike {
 	content?: Array<{ type?: string; text?: string }>;
@@ -56,18 +56,30 @@ export interface CompactCallParts {
 	detail: string;
 }
 
-export function compactCallParts(tool: ToolName, args: Record<string, unknown>): CompactCallParts {
+function isLocaleRelated(args: Record<string, unknown>): boolean {
+	try {
+		const hay = JSON.stringify(args).toLowerCase();
+		return hay.includes("locale") || hay.includes("i18n");
+	} catch {
+		return false;
+	}
+}
+
+export function compactCallParts(tool: ToolName, args: Record<string, unknown>, locale: ResolvedLocale = "en"): CompactCallParts {
 	switch (tool) {
 		case "bash": {
 			const command = typeof args.command === "string" ? normalizedCommand(args.command) : "...";
 			return { purpose: summarizeCommand(command), detail: compactCommandBrief(command) };
 		}
 		case "read":
-			return { purpose: "reading", detail: shorten(typeof args.path === "string" ? args.path : "...", 100) };
+			if (isLocaleRelated(args)) return { purpose: locale === "zh" ? "处理 locale" : "resolving locale", detail: shorten(typeof args.path === "string" ? args.path : "...", 100) };
+			return { purpose: locale === "zh" ? "读取" : "reading", detail: shorten(typeof args.path === "string" ? args.path : "...", 100) };
 		case "write":
-			return { purpose: "writing", detail: shorten(typeof args.path === "string" ? args.path : "...", 100) };
+			if (isLocaleRelated(args)) return { purpose: locale === "zh" ? "国际化" : "localizing", detail: shorten(typeof args.path === "string" ? args.path : "...", 100) };
+			return { purpose: locale === "zh" ? "写入" : "writing", detail: shorten(typeof args.path === "string" ? args.path : "...", 100) };
 		case "edit":
-			return { purpose: "editing", detail: shorten(typeof args.path === "string" ? args.path : "...", 100) };
+			if (isLocaleRelated(args)) return { purpose: locale === "zh" ? "处理 locale" : "resolving locale", detail: shorten(typeof args.path === "string" ? args.path : "...", 100) };
+			return { purpose: locale === "zh" ? "编辑" : "editing", detail: shorten(typeof args.path === "string" ? args.path : "...", 100) };
 		case "find":
 			return { purpose: "finding files", detail: shorten(typeof args.pattern === "string" ? args.pattern : "files", 100) };
 		case "grep":
@@ -154,7 +166,7 @@ export function summarizeCommand(command: string): string {
 	return "running a shell command";
 }
 
-export function toolBrief(tool: ToolName, args: Record<string, unknown>): string {
-	const parts = compactCallParts(tool, args);
+export function toolBrief(tool: ToolName, args: Record<string, unknown>, locale: ResolvedLocale = "en"): string {
+	const parts = compactCallParts(tool, args, locale);
 	return `${tool} ${parts.purpose} ${parts.detail}`.trim();
 }
