@@ -23,7 +23,8 @@ A mode selection replaces the active policy.
 ```json
 {
   "version": 1,
-  "mode": "collapse"
+  "mode": "collapse",
+  "locale": "auto"
 }
 ```
 
@@ -31,6 +32,7 @@ A mode selection replaces the active policy.
 
 ```ts
 type PresetMode = "visible" | "compact" | "collapse" | "hidden";
+type Locale = "en" | "zh" | "auto";
 type ToolName = "bash" | "read" | "write" | "edit" | "find" | "grep" | "ls";
 ```
 
@@ -40,6 +42,8 @@ Validation rules:
 
 - unknown top-level keys are ignored
 - unknown mode falls back to defaults with a warning
+- unknown locale falls back to the previous locale with a warning
+- `auto` detects Chinese from `LANG`/`LC_ALL`/`LC_MESSAGES`/`LANGUAGE`, otherwise uses English
 - malformed JSON never prevents tool execution
 
 The loader returns a normalized immutable configuration object.

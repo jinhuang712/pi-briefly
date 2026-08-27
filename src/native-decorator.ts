@@ -345,7 +345,7 @@ export function renderResultWithStyle(
 		? new EmptyComponent()
 		: policy.style === "brief"
 			? new Text(
-					`\n${theme.fg("muted", "│")} ${theme.fg(context.isError ? "error" : "toolOutput", compactResultSummary(policy.tool, context.args, { ...result, isError: context.isError }))}`,
+					`\n${theme.fg("muted", "│")} ${theme.fg(context.isError ? "error" : "toolOutput", compactResultSummary(policy.tool, context.args, { ...result, isError: context.isError }, locale))}`,
 					0,
 					0,
 				)
@@ -354,7 +354,7 @@ export function renderResultWithStyle(
 				: (() => {
 					const decorator = state.resultDecorator ?? new DecoratedComponent(theme);
 					const summary = policy.tool === "edit" || policy.tool === "write"
-						? compactResultSummary(policy.tool, context.args, { ...result, isError: context.isError })
+						? compactResultSummary(policy.tool, context.args, { ...result, isError: context.isError }, locale)
 						: undefined;
 					decorator.set(inner, policy.style, policy, brief, _hint, context.args, context.isError ? undefined : summary, locale);
 					state.resultDecorator = decorator;

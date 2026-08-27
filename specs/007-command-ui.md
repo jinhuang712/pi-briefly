@@ -31,9 +31,10 @@ Support:
 /briefly show         # show the active mode
 /briefly reload       # reload the configuration and rerender
 /briefly reset        # reset the project mode to visible
+/briefly locale auto  # set UI language (auto, en, or zh)
 ```
 
-Arguments must not bypass validation.
+Arguments must not bypass validation. Locale selection is validated against `auto`, `en`, and `zh`.
 
 ## 4. Persistence
 

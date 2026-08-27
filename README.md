@@ -87,6 +87,8 @@ Direct commands:
 
 `/briefly reset` restores the project mode to `visible`.
 
+Set the UI language with `/briefly locale auto`, `/briefly locale en`, or `/briefly locale zh`. `auto` detects Chinese locales from the environment and otherwise uses English.
+
 ## Configuration
 
 Global configuration:
@@ -106,7 +108,8 @@ Example:
 ```json
 {
   "version": 1,
-  "mode": "collapse"
+  "mode": "collapse",
+  "locale": "auto"
 }
 ```
 

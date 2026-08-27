@@ -69,7 +69,7 @@ export function compactCallParts(tool: ToolName, args: Record<string, unknown>, 
 	switch (tool) {
 		case "bash": {
 			const command = typeof args.command === "string" ? normalizedCommand(args.command) : "...";
-			return { purpose: summarizeCommand(command), detail: compactCommandBrief(command) };
+			return { purpose: summarizeCommand(command, locale), detail: compactCommandBrief(command) };
 		}
 		case "read":
 			if (isLocaleRelated(args)) return { purpose: locale === "zh" ? "处理 locale" : "resolving locale", detail: shorten(typeof args.path === "string" ? args.path : "...", 100) };
@@ -81,11 +81,11 @@ export function compactCallParts(tool: ToolName, args: Record<string, unknown>, 
 			if (isLocaleRelated(args)) return { purpose: locale === "zh" ? "处理 locale" : "resolving locale", detail: shorten(typeof args.path === "string" ? args.path : "...", 100) };
 			return { purpose: locale === "zh" ? "编辑" : "editing", detail: shorten(typeof args.path === "string" ? args.path : "...", 100) };
 		case "find":
-			return { purpose: "finding files", detail: shorten(typeof args.pattern === "string" ? args.pattern : "files", 100) };
+			return { purpose: locale === "zh" ? "查找文件" : "finding files", detail: shorten(typeof args.pattern === "string" ? args.pattern : "files", 100) };
 		case "grep":
-			return { purpose: "searching text", detail: shorten(typeof args.pattern === "string" ? args.pattern : "text", 100) };
+			return { purpose: locale === "zh" ? "搜索文本" : "searching text", detail: shorten(typeof args.pattern === "string" ? args.pattern : "text", 100) };
 		case "ls":
-			return { purpose: "listing", detail: shorten(typeof args.path === "string" ? args.path : ".", 100) };
+			return { purpose: locale === "zh" ? "列出文件" : "listing", detail: shorten(typeof args.path === "string" ? args.path : ".", 100) };
 	}
 }
 
@@ -110,10 +110,12 @@ export function compactResultSummary(
 	tool: ToolName,
 	args: Record<string, unknown> | undefined,
 	result: ToolResultLike | undefined,
+	locale: ResolvedLocale = "en",
 ): string {
+	const zh = locale === "zh";
 	if (result?.isError) {
 		const detail = resultText(result);
-		return detail ? `Error: ${detail.replace(/\s+/g, " ")}` : "Error";
+		return detail ? `${zh ? "错误：" : "Error: "}${detail.replace(/\s+/g, " ")}` : zh ? "错误" : "Error";
 	}
 
 	const output = resultText(result);
@@ -122,36 +124,68 @@ export function compactResultSummary(
 
 	switch (tool) {
 		case "bash":
-			return output
-				? `${countLabel(lineCount(output), "line")} of output${truncated ? " · truncated" : ""}`
-				: "completed · no output";
+			return zh
+				? output
+					? `${lineCount(output)} 行输出${truncated ? " · 已截断" : ""}`
+					: "已完成 · 无输出"
+				: output
+					? `${countLabel(lineCount(output), "line")} of output${truncated ? " · truncated" : ""}`
+					: "completed · no output";
 		case "read":
-			return output
-				? `${countLabel(lineCount(output), "line")} read${truncated ? " · truncated" : ""}`
-				: "read · no text output";
+			return zh
+				? output
+					? `已读取 ${lineCount(output)} 行${truncated ? " · 已截断" : ""}`
+					: "读取 · 无文本输出"
+				: output
+					? `${countLabel(lineCount(output), "line")} read${truncated ? " · truncated" : ""}`
+					: "read · no text output";
 		case "write": {
 			const content = typeof args?.content === "string" ? args.content : output;
-			return content
-				? `${countLabel(lineCount(content), "line")} written · ${content.length} chars`
-				: "written · empty file";
+			return zh
+				? content
+					? `已写入 ${lineCount(content)} 行 · ${content.length} 字符`
+					: "已写入 · 空文件"
+				: content
+					? `${countLabel(lineCount(content), "line")} written · ${content.length} chars`
+					: "written · empty file";
 		}
 		case "edit": {
 			const edits = Array.isArray(args?.edits) ? args.edits.length : 0;
-			return edits ? `${countLabel(edits, "block")} replaced` : "edit completed";
+			return zh
+				? edits
+					? `${edits} 个 block 已替换`
+					: "编辑已完成"
+				: edits ? `${countLabel(edits, "block")} replaced` : "edit completed";
 		}
 		case "find":
-			return `${countLabel(lineCount(output), "match")} found`;
+			return zh ? `找到 ${lineCount(output)} 个匹配项` : `${countLabel(lineCount(output), "match")} found`;
 		case "grep":
-			return `${countLabel(lineCount(output), "match")} found${truncated ? " · truncated" : ""}`;
+			return zh
+				? `找到 ${lineCount(output)} 个匹配项${truncated ? " · 已截断" : ""}`
+				: `${countLabel(lineCount(output), "match")} found${truncated ? " · truncated" : ""}`;
 		case "ls":
-			return `${countLabel(lineCount(output), "entry")} listed`;
+			return zh ? `已列出 ${lineCount(output)} 个条目` : `${countLabel(lineCount(output), "entry")} listed`;
 	}
 }
 
-export function summarizeCommand(command: string): string {
+export function summarizeCommand(command: string, locale: ResolvedLocale = "en"): string {
 	const normalized = normalizedCommand(command);
 	const lower = normalized.toLowerCase();
 	const label = commandLabel(normalized);
+	if (locale === "zh") {
+		if (/\bfind(?:\s|$)/.test(lower)) return `查找${label ?? "文件"}`;
+		if (/\b(?:rg|grep)(?:\s|$)/.test(lower)) return label ? `搜索 ${label}` : "搜索文本";
+		if (/\b(?:ls|exa|tree)(?:\s|$)/.test(lower)) return "列出文件";
+		if (/\b(?:cat|head|tail|sed|awk)(?:\s|$)/.test(lower)) return "读取文件内容";
+		if (/\bwc(?:\s|$)/.test(lower)) return "统计行数";
+		if (/\bgit\b.*\bstatus\b/.test(lower)) return "检查 Git 状态";
+		if (/\bgit\b.*\bdiff\b/.test(lower)) return "检查 Git 变更";
+		if (/\bgit\b.*\blog\b/.test(lower)) return "查看 Git 历史";
+		if (/\bpwd(?:\s|$)/.test(lower)) return "检查当前目录";
+		if (/\b(?:npm|pnpm|yarn|bun)(?:\s|$)/.test(lower)) return "运行包管理命令";
+		if (label) return `打印 ${label}`;
+		return "运行 Shell 命令";
+	}
 	if (/\bfind(?:\s|$)/.test(lower)) return `finding ${label ?? "files"}`;
 	if (/\b(?:rg|grep)(?:\s|$)/.test(lower)) return label ? `searching for ${label}` : "searching text";
 	if (/\b(?:ls|exa|tree)(?:\s|$)/.test(lower)) return "listing files";
