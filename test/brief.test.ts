@@ -5,6 +5,7 @@ import { excerpt, summarizeCommand, toolBrief } from "../src/brief.ts";
 test("summarizes common bash purposes", () => {
 	assert.equal(summarizeCommand("git status --short"), "checking git status");
 	assert.equal(summarizeCommand("rg 'TODO' src"), "searching text");
+	assert.equal(summarizeCommand("printf 'elapsed-time test complete\\n'"), "printing elapsed-time test complete");
 });
 
 test("excerpt preserves code lines and marks omitted content", () => {

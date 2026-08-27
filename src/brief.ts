@@ -27,8 +27,11 @@ export function commandLabel(command: string): string | undefined {
 	if (!match?.[2]) return undefined;
 	const label = match[2]
 		.replace(/%[-+#0-9.*]*[a-zA-Z]/g, " ")
+		.replace(/\\[nrt]/g, " ")
+		.replace(/\\([\\'"$])/g, "$1")
 		.replace(/\s+at\s+depth\b.*$/i, "")
 		.replace(/\s*:\s*$/, "")
+		.replace(/\s+/g, " ")
 		.trim();
 	return label || undefined;
 }

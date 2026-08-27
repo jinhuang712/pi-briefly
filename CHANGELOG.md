@@ -8,6 +8,10 @@ All notable changes to `pi-briefly` are documented here.
 
 - Elapsed time on Pi's working indicator, displayed as `Working... (Ns)` during each active turn.
 
+### Fixed
+
+- Cleaned escaped newlines and quotes from compact `bash` operation labels.
+
 ## [0.1.0] - 2026-08-26
 
 ### Added
