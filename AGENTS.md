@@ -8,9 +8,10 @@ Source entry point:
 
 - `src/index.ts`
 
-Specifications:
+Documentation and behavior coverage:
 
-- `specs/README.md`
+- `README.md`
+- `test/`
 
 ## Non-negotiable design rules
 
@@ -30,11 +31,11 @@ Specifications:
 6. **Small-step development**
    - Make one coherent change at a time.
    - Run the focused test after each step, then run the full smoke suite before moving on.
-   - Keep specs updated when behavior changes.
+   - Keep the README and tests updated when behavior changes.
 
 ## Configuration
 
-Configuration files are documented in `specs/003-config-spec.md`:
+Configuration files are documented in `README.md`:
 
 - Global: `~/.pi/agent/pi-briefly.json`
 - Project: `.pi/pi-briefly.json`

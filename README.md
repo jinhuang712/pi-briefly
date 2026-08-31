@@ -159,7 +159,7 @@ PI_OFFLINE=1 pi --no-session --no-extensions \
   -p 'Run the pi-briefly smoke test and stop.'
 ```
 
-See [specs/README.md](specs/README.md) for the implementation and behavior specifications.
+See the source and tests for implementation details and behavior coverage.
 
 ## License
 
