@@ -6,7 +6,18 @@
  */
 
 import { DynamicBorder, type ExtensionAPI, type Theme } from "@earendil-works/pi-coding-agent";
-import { Container, getKeybindings, isViewportTUI, SelectList, Spacer, Text, type SelectItem, visibleWidth } from "@earendil-works/pi-tui";
+import {
+	Container,
+	getKeybindings,
+	isViewportTUI,
+	SelectList,
+	Spacer,
+	stripTerminalSequences,
+	Text,
+	truncateToWidth,
+	type SelectItem,
+	visibleWidth,
+} from "@earendil-works/pi-tui";
 import {
 	createBashToolDefinition,
 	createEditToolDefinition,
@@ -56,6 +67,7 @@ const NAVIGATION_HINT_WIDGET_KEY = "pi-briefly-navigation-hint";
 const MAC_PROMPT_NAVIGATION_KEY = "ctrl+\\";
 const MAC_BOTTOM_NAVIGATION_KEY = "ctrl+]";
 const OSC133_PROMPT_START = /^\x1b\]133;A(?:\x07|\x1b\\)/;
+const OSC133_PROMPT_END = /\x1b\]133;B(?:\x07|\x1b\\)/;
 
 function findScrollViewBox(box: any, scrollView: any): any {
 	if (!box) return undefined;
@@ -81,6 +93,152 @@ function getNavigationPosition(tui: any): TranscriptNavigationPosition {
 	}
 	if (contentLines && Number.isInteger(scrollTop) && OSC133_PROMPT_START.test(contentLines[scrollTop] ?? "")) return "prompt";
 	return "middle";
+}
+
+function isRenderableChatMessage(entry: any): boolean {
+	if (entry?.type !== "message") return false;
+	const message = entry.message;
+	return message?.role === "user" || (message?.role === "assistant" && !message.content?.some((part: any) => part.type === "toolCall"));
+}
+
+function getMessageText(message: any): string | undefined {
+	const content = Array.isArray(message?.content) ? message.content : [];
+	const text = content
+		.filter((part: any) => part.type === "text" && typeof part.text === "string")
+		.map((part: any) => part.text.replace(/\s+/g, " ").trim())
+		.filter(Boolean)
+		.join(" ");
+	return text || undefined;
+}
+
+interface UserPromptMarker {
+	row: number;
+	endRow: number;
+	text: string;
+}
+
+function getUserPromptMarkers(tui: any, sessionManager: any): UserPromptMarker[] {
+	const layout = tui?.currentLayout;
+	const scrollView = layout?.primaryScrollView;
+	if (!scrollView) return [];
+
+	const box = findScrollViewBox(layout.root, scrollView);
+	const lines = box?.scrollContentLines;
+	if (!lines) return [];
+
+	const entries = sessionManager?.buildContextEntries?.().filter(isRenderableChatMessage) ?? [];
+	let entryIndex = 0;
+	const markers: UserPromptMarker[] = [];
+	for (let row = 0; row < lines.length; row++) {
+		if (!OSC133_PROMPT_START.test(lines[row] ?? "")) continue;
+		const entry = entries[entryIndex++];
+		if (entry?.message?.role !== "user") continue;
+		const text = getMessageText(entry.message);
+		if (!text) continue;
+
+		let endRow = lines.length;
+		for (let nextRow = row; nextRow < lines.length; nextRow++) {
+			if (OSC133_PROMPT_END.test(lines[nextRow] ?? "")) {
+				endRow = nextRow + 1;
+				break;
+			}
+		}
+		markers.push({ row, endRow, text });
+	}
+	return markers;
+}
+
+function getStickyPromptText(tui: any, sessionManager: any): string | undefined {
+	const scrollTop = tui?.currentLayout?.primaryScrollView?.scrollTop;
+	if (!Number.isInteger(scrollTop)) return undefined;
+	const markers = getUserPromptMarkers(tui, sessionManager);
+	let active: UserPromptMarker | undefined;
+	for (const marker of markers) {
+		if (marker.row >= scrollTop) break;
+		active = marker;
+	}
+	if (!active || active.endRow > scrollTop) return undefined;
+
+	// If the next prompt starts exactly at the viewport top, the real prompt is
+	// already visible there; don't paint the previous prompt over it.
+	const next = markers.find((marker) => marker.row >= scrollTop);
+	if (next?.row === scrollTop) return undefined;
+	return active.text;
+}
+
+const patchedPromptNavigationTuis = new WeakSet<object>();
+
+function installUserPromptNavigation(tui: any, sessionManager: any): void {
+	if (!tui || typeof tui !== "object" || patchedPromptNavigationTuis.has(tui)) return;
+	const nativeScrollToPrompt = tui.scrollToPrompt;
+	if (typeof nativeScrollToPrompt !== "function") return;
+
+	patchedPromptNavigationTuis.add(tui);
+	tui.scrollToPrompt = (direction: number) => {
+		if (direction >= 0) {
+			nativeScrollToPrompt(direction);
+			return;
+		}
+
+		const currentTop = tui?.currentLayout?.primaryScrollView?.scrollTop;
+		const target = getUserPromptMarkers(tui, sessionManager)
+			.map((marker) => marker.row)
+			.filter((row) => row < currentTop)
+			.pop();
+		if (target === undefined) return;
+
+		let previousTop = currentTop;
+		for (let attempt = 0; attempt < 100 && previousTop > target; attempt++) {
+			nativeScrollToPrompt(direction);
+			const nextTop = tui?.currentLayout?.primaryScrollView?.scrollTop;
+			if (!Number.isInteger(nextTop) || nextTop >= previousTop) break;
+			previousTop = nextTop;
+		}
+	};
+}
+
+class StickyPromptPreview extends Text {
+	private readonly tui: any;
+	private readonly sessionManager: any;
+	private readonly backgroundStyle: (text: string) => string;
+	private readonly prefixStyle: (text: string) => string;
+	private readonly textStyle: (text: string) => string;
+	private requestedLayoutRefresh = false;
+
+	constructor(
+		tui: any,
+		sessionManager: any,
+		backgroundStyle: (text: string) => string,
+		prefixStyle: (text: string) => string,
+		textStyle: (text: string) => string,
+	) {
+		super("", 0, 0);
+		this.tui = tui;
+		this.sessionManager = sessionManager;
+		this.backgroundStyle = backgroundStyle;
+		this.prefixStyle = prefixStyle;
+		this.textStyle = textStyle;
+	}
+
+	override render(width: number): string[] {
+		if (!isViewportTUI(this.tui)) return [];
+		if (!this.tui?.currentLayout && !this.requestedLayoutRefresh) {
+			this.requestedLayoutRefresh = true;
+			queueMicrotask(() => this.tui?.requestRender?.());
+		}
+
+		const prompt = getStickyPromptText(this.tui, this.sessionManager);
+		if (!prompt) return [];
+
+		const prefix = truncateToWidth("prompt:", Math.max(1, width - 2), "");
+		const prefixLabel = this.prefixStyle(width >= 3 ? ` ${prefix} ` : prefix);
+		const remainingWidth = Math.max(0, width - visibleWidth(prefixLabel) - 1);
+		const promptText = remainingWidth > 0 ? ` ${truncateToWidth(prompt, remainingWidth, "…")}` : "";
+		const content = `${prefixLabel}${this.textStyle(promptText)}`;
+		const line = `${content}${" ".repeat(Math.max(0, width - visibleWidth(content)))}`;
+		this.setText(this.backgroundStyle(line));
+		return super.render(width);
+	}
 }
 
 class DynamicNavigationHint extends Text {
@@ -211,6 +369,39 @@ function setNavigationHint(ctx: any, config: BrieflyConfig): void {
 				(text) => theme.bg("selectedBg", theme.fg("text", text)),
 			),
 		{ placement: "aboveEditor" },
+	);
+}
+
+function setStickyPromptPreview(ctx: any): void {
+	if (!ctx.hasUI || ctx.mode !== "tui") return;
+
+	// This is a small fullscreen-only prototype. Calling done immediately in
+	// regular TUI avoids leaving a persistent overlay that would block mode
+	// switching, while fullscreen gets a passive, screen-relative preview.
+	void ctx.ui.custom(
+		(tui: any, theme: Theme, _keybindings: any, done: () => void) => {
+			if (!isViewportTUI(tui)) {
+				done();
+				return new Text("", 0, 0);
+			}
+			installUserPromptNavigation(tui, ctx.sessionManager);
+			return new StickyPromptPreview(
+				tui,
+				ctx.sessionManager,
+				(text) => theme.bg("selectedBg", text),
+				(text) => theme.bold(theme.fg("accent", text)),
+				(text) => theme.fg("text", text),
+			);
+		},
+		{
+			overlay: true,
+			overlayOptions: {
+				anchor: "top-left",
+				width: "100%",
+				maxHeight: 1,
+				nonCapturing: true,
+			},
+		},
 	);
 }
 
@@ -445,6 +636,7 @@ export default function piBriefly(pi: ExtensionAPI): void {
 	pi.on("session_start", async (_event, ctx) => {
 		reloadConfig(ctx.cwd, ctx.hasUI ? (message, level) => ctx.ui.notify(message, level) : undefined);
 		setNavigationHint(ctx, currentConfig);
+		setStickyPromptPreview(ctx);
 	});
 	pi.on("agent_start", (_event, ctx) => {
 		turnTokens = 0;
