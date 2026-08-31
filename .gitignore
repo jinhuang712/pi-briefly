@@ -1,0 +1,7 @@
+.DS_Store
+*.log
+.pi/sessions/
+.pi/settings.local.json
+.pi/pi-briefly.json
+.pi/extensions/
+node_modules/
