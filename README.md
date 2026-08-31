@@ -39,7 +39,7 @@ Then use Pi's native navigation:
 
 Pi also provides a native jump-to-top action (`Home` by default); configure `tui.altScreen.top` if your keyboard or terminal does not provide that key.
 
-These actions are provided by Pi rather than reimplemented by `pi-briefly`, so they keep working with native transcript rendering. On macOS, `pi-briefly` changes the prompt and bottom actions to `Ctrl+\` and `Ctrl+]` for the session unless you already configured them. It does not write to your keybindings file. The extension shows a persistent centered context-sensitive pill above the editor:
+These actions are provided by Pi rather than reimplemented by `pi-briefly`, so they keep working with native transcript rendering. They are available only in fullscreen TUI; regular TUI keeps its native terminal scrollback and does not show the navigation pill. On macOS, `pi-briefly` changes the prompt and bottom actions to `Ctrl+\` and `Ctrl+]` for the session unless you already configured them. It does not write to your keybindings file. In fullscreen mode, the extension shows a persistent centered context-sensitive pill above the editor:
 
 ```text
 [ Jump to prompt (Ctrl+\) ↑ ]

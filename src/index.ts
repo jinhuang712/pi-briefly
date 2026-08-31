@@ -6,7 +6,7 @@
  */
 
 import { DynamicBorder, type ExtensionAPI, type Theme } from "@earendil-works/pi-coding-agent";
-import { Container, getKeybindings, SelectList, Spacer, Text, type SelectItem, visibleWidth } from "@earendil-works/pi-tui";
+import { Container, getKeybindings, isViewportTUI, SelectList, Spacer, Text, type SelectItem, visibleWidth } from "@earendil-works/pi-tui";
 import {
 	createBashToolDefinition,
 	createEditToolDefinition,
@@ -108,6 +108,10 @@ class DynamicNavigationHint extends Text {
 	}
 
 	override render(width: number): string[] {
+		// Transcript navigation is implemented by Pi's fullscreen viewport. The
+		// regular TUI has no application-owned scroll region, so rendering the
+		// pill there would advertise shortcuts that cannot take effect.
+		if (!isViewportTUI(this.tui)) return [];
 		if (!this.tui?.currentLayout && !this.requestedLayoutRefresh) {
 			this.requestedLayoutRefresh = true;
 			queueMicrotask(() => this.tui?.requestRender?.());
