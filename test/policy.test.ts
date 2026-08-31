@@ -1,11 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { presetStyle, resolveSlot } from "../src/policy.ts";
+import { presetStyle, resolveSlot, showsTurnDuration } from "../src/policy.ts";
 
 test("preset modes are fixed", () => {
 	assert.equal(presetStyle("visible", { isActive: false, isSettled: true }), "full");
 	assert.equal(presetStyle("compact", { isActive: true, isSettled: false }), "brief");
 	assert.equal(presetStyle("hidden", { isActive: true, isSettled: false }), "hidden");
+});
+
+test("visible and compact show a final turn duration", () => {
+	assert.equal(showsTurnDuration("visible"), true);
+	assert.equal(showsTurnDuration("compact"), true);
+	assert.equal(showsTurnDuration("collapse"), false);
+	assert.equal(showsTurnDuration("hidden"), false);
 });
 
 test("compact keeps edit and write previews native while limiting them", () => {

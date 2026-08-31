@@ -11,12 +11,14 @@ All notable changes to `pi-briefly` are documented here.
 
 ### Fixed
 
+- Avoided re-compressing concise provider-generated thinking summaries, including GPT-style standalone reasoning lines.
 - Cleaned escaped newlines and quotes from compact `bash` operation labels.
 - Restored native-like compact rows with Pi tool-title styling, native status backgrounds, operation lines, and concise result summaries for every built-in tool.
 - Styled compact calls with a tool name, purpose, dim argument/script brief, and visible result separator.
 - Kept `edit` on Pi's native renderer in compact mode while showing only changed diff lines in the native shell.
 - Kept new-file `write` previews on Pi's native renderer while limiting them to the first few lines.
-- Added one friendly day/hour/minute/second `Took` duration after each completed compact turn; native tool rows retain their own elapsed counters.
+- Added one friendly day/hour/minute/second `Took` duration after each completed visible or compact turn, including turns without tool calls; when provider usage is available, the line also includes spent tokens; native tool rows retain their own elapsed counters.
+- Kept common `Took` and `Working` capabilities separate from the mode descriptions in the selector.
 
 ## [0.1.0] - 2026-08-26
 

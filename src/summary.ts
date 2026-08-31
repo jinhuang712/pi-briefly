@@ -27,9 +27,14 @@ export function formatDuration(milliseconds: number, locale: ResolvedLocale = "e
 	return parts.join(" ");
 }
 
-export function formatTook(milliseconds: number, locale: ResolvedLocale = "en"): string {
+export function formatTook(milliseconds: number, locale: ResolvedLocale = "en", spentTokens?: number | null): string {
 	const duration = formatDuration(milliseconds, locale);
-	return locale === "zh" ? `（耗时 ${duration}。）` : `(Took ${duration}.)`;
+	const tokens = spentTokens === undefined || spentTokens === null
+		? ""
+		: locale === "zh"
+			? ` · 消耗 ${formatTokens(spentTokens)} tokens`
+			: ` · spent ${formatTokens(spentTokens)} tokens`;
+	return locale === "zh" ? `（耗时 ${duration}${tokens}。）` : `(Took ${duration}${tokens}.)`;
 }
 
 export function formatTokens(tokens: number | null | undefined): string {

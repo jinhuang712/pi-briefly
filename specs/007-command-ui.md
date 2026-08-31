@@ -11,13 +11,17 @@ The selector contains each mode with a short description. The active mode is alw
 ```text
 pi-briefly mode — compact
 
-✓ compact  — Compact summary + Took (current)
+✓ compact  — Compact summary (current)
   visible  — Full native
   collapse — Fold after run
   hidden   — No UI
+
+Common:
+  Working... (1 minute 53 seconds)
+  Took 3 seconds · spent 12.3k tokens
 ```
 
-The cursor starts on the first entry, which is the active mode.
+The cursor starts on the first entry, which is the active mode. In the TUI, the common-capability line is rendered in the muted/dim color separately from the mode descriptions; RPC mode uses the plain selector fallback.
 
 Selecting a mode immediately applies it without a second confirmation:
 

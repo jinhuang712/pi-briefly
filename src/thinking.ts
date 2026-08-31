@@ -42,22 +42,47 @@ export function resolveThinkingPresentation(mode: PresetMode, view: ThinkingView
 
 const BRIEF_MAX_CHARS = 80;
 
+function meaningfulLines(markdown: string): string[] {
+	return markdown
+		.split("\n")
+		.map((candidate) => candidate.trim())
+		.filter((candidate) => candidate.length > 0);
+}
+
+function plainThinkingLine(line: string): string {
+	return line
+		.replace(/^#+\s*/, "")
+		.replace(/^[-*+]\s+/, "")
+		.replace(/[`*_~]/g, "")
+		.trim();
+}
+
+/**
+ * Detect provider-generated reasoning summaries that are already concise.
+ * GPT-style output commonly contains several short, standalone lines split
+ * by blank lines; re-prefixing those lines with `…` only adds noise.
+ */
+export function isAlreadyCondensedThinking(markdown: string): boolean {
+	const blocks = markdown
+		.split(/\n\s*\n/)
+		.map((block) => block.trim())
+		.filter((block) => block.length > 0);
+	if (blocks.length === 0) return false;
+	return blocks.every((block) => {
+		const lines = meaningfulLines(block);
+		return lines.length === 1 && plainThinkingLine(lines[0]).length <= BRIEF_MAX_CHARS;
+	});
+}
+
 /**
  * Build a one-line brief from thinking markdown: the first meaningful line
  * with light markdown decoration stripped, truncated to one terminal line.
  * Falls back to the given label when no meaningful line exists.
  */
 export function thinkingBrief(markdown: string, fallback: string): string {
-	const line = markdown
-		.split("\n")
-		.map((candidate) => candidate.trim())
-		.find((candidate) => candidate.length > 0);
+	const line = meaningfulLines(markdown)[0];
 	if (!line) return fallback;
-	const plain = line
-		.replace(/^#+\s*/, "")
-		.replace(/^[-*+]\s+/, "")
-		.replace(/[`*_~]/g, "")
-		.trim();
+	const plain = plainThinkingLine(line);
 	const brief = plain.length > 0 ? plain : line;
 	if (brief.length <= BRIEF_MAX_CHARS) return `… ${brief}`;
 	return `… ${brief.slice(0, BRIEF_MAX_CHARS)}…`;

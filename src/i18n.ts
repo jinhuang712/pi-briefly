@@ -21,7 +21,7 @@ export function resolveLocale(config: BrieflyConfig): ResolvedLocale {
 const modeDescriptions: Record<ResolvedLocale, Record<PresetMode, string>> = {
 	en: {
 		visible: "Full native",
-		compact: "Compact summary + Took",
+		compact: "Compact summary",
 		collapse: "Fold after run",
 		hidden: "No UI",
 	},
@@ -50,6 +50,12 @@ const thinkingBriefLabel: Record<ResolvedLocale, string> = {
 
 export function getModeDescription(locale: ResolvedLocale, mode: PresetMode): string {
 	return modeDescriptions[locale][mode];
+}
+
+export function getCommonFeatures(locale: ResolvedLocale): string {
+	return locale === "zh"
+		? "通用：\n  执行中... (1 分钟 53 秒)\n  耗时 3 秒 · 消耗 12.3k tokens"
+		: "Common:\n  Working... (1 minute 53 seconds)\n  Took 3 seconds · spent 12.3k tokens";
 }
 
 export function getSelectorTitle(locale: ResolvedLocale): string {

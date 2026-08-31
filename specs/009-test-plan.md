@@ -82,9 +82,9 @@ Verify:
 - Ctrl+O expansion
 - state updates after agent settles
 - thinking streams fully in compact while the message streams, folds to a brief at message completion; collapse shows one-line briefs; hidden leaves a stub and an aggregate step count
-- in compact, long GLM/Claude-style thinking blocks fold to one-line briefs when each message completes, before the turn ends
+- in compact, long GLM/Claude-style thinking blocks fold to one-line briefs when each message completes, before the turn ends; already-condensed provider summaries remain unchanged
 - in hidden, every tool row and thinking block is replaced by a one-line stub; Ctrl+O reveals the native content; no empty tool box remains
-- compact mode emits exactly one final `(Took …)` line per tool-using turn
+- visible and compact modes emit exactly one final `(Took …)` line per settled turn, including turns without tool calls
 - compact tool rows do not duplicate per-tool durations
 - compact edit output keeps only native-colored changed diff lines
 - compact write output keeps only the first few native-highlighted preview lines

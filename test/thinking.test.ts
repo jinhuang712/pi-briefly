@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolveThinkingPresentation, thinkingBrief } from "../src/thinking.ts";
+import { isAlreadyCondensedThinking, resolveThinkingPresentation, thinkingBrief } from "../src/thinking.ts";
 
 test("visible keeps native thinking in every state", () => {
 	assert.equal(resolveThinkingPresentation("visible", { settled: false, expanded: false }), "native");
@@ -34,6 +34,12 @@ test("hidden leaves a stub and expands to native", () => {
 	assert.equal(resolveThinkingPresentation("hidden", { streaming: true, settled: false, expanded: false }), "hiddenStub");
 	assert.equal(resolveThinkingPresentation("hidden", { streaming: false, settled: true, expanded: false }), "hiddenStub");
 	assert.equal(resolveThinkingPresentation("hidden", { streaming: false, settled: true, expanded: true }), "native");
+});
+
+test("recognizes already-condensed provider summaries", () => {
+	assert.equal(isAlreadyCondensedThinking("**Auditing the renderer**\n\n**Checking the result path**"), true);
+	assert.equal(isAlreadyCondensedThinking("**Auditing the renderer**\nDetails about the renderer follow."), false);
+	assert.equal(isAlreadyCondensedThinking("x".repeat(81)), false);
 });
 
 test("thinkingBrief uses the first meaningful line", () => {

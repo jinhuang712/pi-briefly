@@ -22,7 +22,7 @@ Normal native presentation for every tool:
 - native code/diff/image rendering
 - native expand behavior
 
-The preset has no user-editable per-tool overrides.
+The preset has no user-editable per-tool overrides. After each settled agent turn, it also emits one friendly duration such as `(Took 3 seconds · spent 12.3k tokens.)`. `Took` (including turn token usage) and the live `Working...` timer are common extension capabilities rather than mode-specific tool presentation.
 
 ## 3. `compact`
 
@@ -38,14 +38,14 @@ read file src/index.ts
 write file README.md
 │ 42 lines written · 980 chars
 
-(Took 3 seconds.)
+(Took 3 seconds · spent 12.3k tokens.)
 ```
 
-The call line contains a styled tool name, purpose, and dim short argument/path or script brief. The result line contains a visible `│` separator and useful counts or completion details rather than the full output or file body. Errors remain visible on the result line. `edit` and new `write` calls are exceptions: their native components are compacted without replacing syntax/diff colors, line numbers, or expand behavior. After the whole turn, compact mode emits one friendly duration such as `(Took 1 minute 53 seconds.)`; native tool rows retain their own per-tool elapsed counter. Compact rows keep Pi's native tool background, padding, and status colors. `Ctrl+O` is available for the native full presentation where Pi supports expansion.
+The call line contains a styled tool name, purpose, and dim short argument/path or script brief. The result line contains a visible `│` separator and useful counts or completion details rather than the full output or file body. Errors remain visible on the result line. `edit` and new `write` calls are exceptions: their native components are compacted without replacing syntax/diff colors, line numbers, or expand behavior. After the whole turn, compact mode emits one friendly duration such as `(Took 1 minute 53 seconds.)`; native tool rows retain their own per-tool elapsed counter. Visible and compact modes emit this final duration for every settled agent turn, including turns without tool calls. Compact rows keep Pi's native tool background, padding, and status colors. `Ctrl+O` is available for the native full presentation where Pi supports expansion. The final `Took` line includes the turn's provider-reported token usage when available.
 
 Active working time uses the same day/hour/minute/second units instead of a seconds-only counter.
 
-Assistant thinking stays fully visible while its message streams. The moment the message completes — always before the turn ends — each thinking block folds into a one-line brief (the thinking's first meaningful line); `Ctrl+O` restores the native thinking text.
+Assistant thinking stays fully visible while its message streams. The moment the message completes — always before the turn ends — each long thinking block folds into a one-line brief (the thinking's first meaningful line); provider-generated concise reasoning summaries are left unchanged rather than compressed again. `Ctrl+O` restores the native thinking text.
 
 ## 4. `collapse`
 

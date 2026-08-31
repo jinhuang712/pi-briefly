@@ -5,8 +5,8 @@
  * decorate those native components according to an immutable preset.
  */
 
-import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
-import { Text } from "@earendil-works/pi-tui";
+import { DynamicBorder, type ExtensionAPI, type Theme } from "@earendil-works/pi-coding-agent";
+import { Container, SelectList, Spacer, Text, type SelectItem } from "@earendil-works/pi-tui";
 import {
 	createBashToolDefinition,
 	createEditToolDefinition,
@@ -21,6 +21,7 @@ import { loadConfig, saveConfig, setLocale, setMode } from "./config.ts";
 import { toolBrief } from "./brief.ts";
 import {
 	getCollapsedThinkingLabel,
+	getCommonFeatures,
 	getCurrentModeSuffix,
 	getHiddenThinkingStub,
 	getHiddenToolsSummary,
@@ -36,9 +37,9 @@ import {
 } from "./i18n.ts";
 import { LifecycleController } from "./lifecycle.ts";
 import { renderCallWithStyle, renderResultWithStyle, type RenderContext } from "./native-decorator.ts";
-import { resolveSlot } from "./policy.ts";
+import { resolveSlot, showsTurnDuration } from "./policy.ts";
 import { formatCollapseSummary, formatDuration, formatTook } from "./summary.ts";
-import { resolveThinkingPresentation, thinkingBrief } from "./thinking.ts";
+import { isAlreadyCondensedThinking, resolveThinkingPresentation, thinkingBrief } from "./thinking.ts";
 import { type BrieflyConfig, type Locale, type PresetMode, toolNames } from "./types.ts";
 
 type BuiltInTools = ReturnType<typeof createBuiltInTools>;
@@ -98,6 +99,63 @@ function useNativeExpandedPresentation(mode: PresetMode, toolName: ToolName, exp
 	if (!expanded) return false;
 	if (mode === "collapse" || mode === "hidden") return true;
 	return mode === "compact" && (toolName === "edit" || toolName === "write");
+}
+
+function modeSelectorItems(ordered: PresetMode[], currentMode: PresetMode, locale: "en" | "zh"): SelectItem[] {
+	const suffix = getCurrentModeSuffix(locale);
+	return ordered.map((mode) => ({
+		value: mode,
+		label: mode === currentMode ? `✓ ${mode}` : mode,
+		description: mode === currentMode ? `${getModeDescription(locale, mode)} ${suffix}` : getModeDescription(locale, mode),
+	}));
+}
+
+async function selectMode(ctx: any, ordered: PresetMode[], currentMode: PresetMode, locale: "en" | "zh"): Promise<PresetMode | undefined> {
+	const items = modeSelectorItems(ordered, currentMode, locale);
+	const title = `${getSelectorTitle(locale)} — ${currentMode}`;
+	if (ctx.mode !== "tui") {
+		const options = items.map((item) => `${item.label} — ${item.description}`);
+		const selected = await ctx.ui.select(title, options);
+		return items.find((item) => `${item.label} — ${item.description}` === selected)?.value as PresetMode | undefined;
+	}
+
+	return ctx.ui.custom<PresetMode | undefined>((tui: any, theme: Theme, _keybindings: any, done: (value: PresetMode | undefined) => void) => {
+		const container = new Container();
+		const border = new DynamicBorder((text: string) => theme.fg("accent", text));
+		const bottomBorder = new DynamicBorder((text: string) => theme.fg("accent", text));
+		container.addChild(border);
+		container.addChild(new Spacer(1));
+		container.addChild(new Text(theme.fg("accent", theme.bold(title)), 1, 0));
+		container.addChild(new Spacer(1));
+		const selectList = new SelectList(items, items.length, {
+			selectedPrefix: (text) => theme.fg("accent", text),
+			selectedText: (text) => theme.fg("accent", text),
+			description: (text) => theme.fg("dim", text),
+			scrollInfo: (text) => theme.fg("dim", text),
+			noMatch: (text) => theme.fg("warning", text),
+		});
+		selectList.onSelect = (item) => done(item.value as PresetMode);
+		selectList.onCancel = () => done(undefined);
+		container.addChild(selectList);
+		container.addChild(new Spacer(1));
+		container.addChild(new Text(theme.fg("dim", getCommonFeatures(locale)), 1, 0));
+		container.addChild(new Spacer(1));
+		container.addChild(new Text(theme.fg("dim", `${keyHint("tui.select.confirm", "select")}  ${keyHint("tui.select.cancel", "cancel")}`), 1, 0));
+		container.addChild(new Spacer(1));
+		container.addChild(bottomBorder);
+		return {
+			render(width: number): string[] {
+				return container.render(width);
+			},
+			invalidate(): void {
+				container.invalidate();
+			},
+			handleInput(data: string): void {
+				selectList.handleInput(data);
+				tui.requestRender();
+			},
+		};
+	});
 }
 
 function registerToolOverride(
@@ -193,9 +251,9 @@ export default function piBriefly(pi: ExtensionAPI): void {
 		);
 	});
 	pi.registerEntryRenderer(TURN_DURATION_TYPE, (entry, _options, theme) => {
-		const data = entry.data as { durationMs?: number; locale?: string };
+		const data = entry.data as { durationMs?: number; locale?: string; spentTokens?: number };
 		const locale = (data.locale === "zh" ? "zh" : data.locale === "en" ? "en" : resolveLocale(currentConfig)) as "en" | "zh";
-		return new Text(theme.fg("dim", formatTook(data.durationMs ?? 0, locale)), 2, 0);
+		return new Text(theme.fg("dim", formatTook(data.durationMs ?? 0, locale, data.spentTokens)), 2, 0);
 	});
 	pi.registerEntryRenderer(HIDDEN_SUMMARY_TYPE, (entry, { expanded }, theme) => {
 		const data = entry.data as { count?: number; locale?: string };
@@ -216,6 +274,7 @@ export default function piBriefly(pi: ExtensionAPI): void {
 		const locale = resolveLocale(currentConfig);
 		if (presentation === "collapsed") return getCollapsedThinkingLabel(locale);
 		if (presentation === "hiddenStub") return getHiddenThinkingStub(locale);
+		if (isAlreadyCondensedThinking(markdown)) return markdown;
 		return thinkingBrief(markdown, getThinkingBriefLabel(locale));
 	});
 	const reloadConfig = (cwd: string, notify?: (message: string, level: "info" | "warning" | "error") => void): void => {
@@ -286,8 +345,12 @@ export default function piBriefly(pi: ExtensionAPI): void {
 			// with tool rows in collapse mode.
 			refreshAssistantMessages(ctx);
 		}
-		if (currentConfig.mode === "compact" && stats.toolCalls > 0) {
-			pi.appendEntry(TURN_DURATION_TYPE, { durationMs: turnDurationMs, locale: resolveLocale(currentConfig) });
+		if (showsTurnDuration(currentConfig.mode)) {
+			pi.appendEntry(TURN_DURATION_TYPE, {
+				durationMs: turnDurationMs,
+				locale: resolveLocale(currentConfig),
+				spentTokens: turnTokens > 0 ? turnTokens : undefined,
+			});
 		}
 		if (currentConfig.mode === "collapse" && stats.toolCalls > 0) {
 			pi.appendEntry(COLLAPSE_SUMMARY_TYPE, { summary });
@@ -356,18 +419,7 @@ export default function piBriefly(pi: ExtensionAPI): void {
 			// user can always tell which mode is selected before switching.
 			const currentMode = currentConfig.mode;
 			const ordered = [currentMode, ...modes.filter((mode) => mode !== currentMode)];
-			const suffix = getCurrentModeSuffix(locale);
-			const modeByOption = new Map<string, PresetMode>();
-			const options = ordered.map((mode) => {
-				const option = mode === currentMode
-					? `✓ ${mode.padEnd(8)} — ${getModeDescription(locale, mode)} ${suffix}`
-					: `  ${mode.padEnd(8)} — ${getModeDescription(locale, mode)}`;
-				modeByOption.set(option, mode);
-				return option;
-			});
-			const selectedRaw = await ctx.ui.select(`${getSelectorTitle(locale)} — ${currentMode}`, options);
-			if (!selectedRaw) return;
-			const selected = modeByOption.get(selectedRaw);
+			const selected = await selectMode(ctx, ordered, currentMode, locale);
 			if (!selected || !modes.includes(selected)) return;
 			currentConfig = setMode(currentConfig, selected);
 			lifecycle.refresh();

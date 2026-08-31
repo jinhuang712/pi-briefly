@@ -41,3 +41,7 @@ export function resolveSlot(
 export function isContentStyle(style: ToolStyle): boolean {
 	return style === "full" || style === "partial" || style === "highlight" || style === "compact";
 }
+
+export function showsTurnDuration(mode: BrieflyConfig["mode"]): boolean {
+	return mode === "visible" || mode === "compact";
+}

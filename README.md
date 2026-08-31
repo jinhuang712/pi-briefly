@@ -13,7 +13,7 @@ A native-first [Pi](https://github.com/badlogic/pi-mono) extension for reducing 
 | `collapse` | Native rendering while the agent runs; after the turn settles, tool rows are folded and an aggregate summary is shown. |
 | `hidden` | Tool rows and thinking blocks leave one-line stubs (so the transcript never looks like a blank gap); `Ctrl+O` reveals the native content. Execution and model context remain unchanged. |
 
-Long reasoning models (GLM, Claude, GPT-5) can emit very long thinking blocks. `pi-briefly` condenses them with the same presets: `compact` keeps the thinking process fully visible while its message streams and folds each block into a one-line brief (its first meaningful line) the moment the message completes — always before the turn ends; `collapse` shows one-line briefs during the run and `… intermediate steps collapsed` after settlement. `Ctrl+O` restores the native thinking text; `hidden` suppresses thinking entirely; `visible` keeps Pi's native full rendering.
+Long reasoning models (GLM, Claude, GPT-5) can emit very long thinking blocks. `pi-briefly` condenses them with the same presets: `compact` keeps the thinking process fully visible while its message streams and folds each block into a one-line brief (its first meaningful line) the moment the message completes — always before the turn ends; `collapse` shows one-line briefs during the run and `… intermediate steps collapsed` after settlement. Provider-generated concise reasoning summaries, such as GPT's short standalone lines, are left unchanged rather than compressed a second time. `Ctrl+O` restores the native thinking text; `hidden` suppresses thinking entirely; `visible` keeps Pi's native full rendering.
 
 Modes are fixed presets; there is no per-tool override layer.
 
@@ -29,10 +29,10 @@ read file src/index.ts
 write file README.md
 │ 42 lines written · 980 chars
 
-(Took 3 seconds.)
+(Took 3 seconds · spent 12.3k tokens.)
 ```
 
-The compact call line uses a styled tool name, purpose, and dim argument/path or script brief. Each result keeps a visible `│` separator. `edit` keeps Pi's native preview and result diff renderer, showing only changed diff lines in the native shell. New `write` calls keep Pi's native syntax-highlighted preview, limited to the first few lines. Other rows retain Pi's native tool background, padding, and status colors. The final `(Took …)` line is emitted once after the whole turn; native tool rows continue to provide their own per-tool elapsed counter.
+The compact call line uses a styled tool name, purpose, and dim argument/path or script brief. Each result keeps a visible `│` separator. `edit` keeps Pi's native preview and result diff renderer, showing only changed diff lines in the native shell. New `write` calls keep Pi's native syntax-highlighted preview, limited to the first few lines. Other rows retain Pi's native tool background, padding, and status colors. Visible and compact modes each emit one final `(Took … · spent … tokens.)` line after the whole turn; native tool rows continue to provide their own per-tool elapsed counter. `Took` (including turn token usage) and the live `Working...` timer are common pi-briefly capabilities, not mode-specific tool presentation features.
 
 ### Collapse output
 
@@ -43,7 +43,7 @@ After a settled turn, `collapse` keeps the final answer and displays:
 ✓ spent 11 seconds · 4 tool calls · 1 file read · used context 6.4k (2%) · spent tokens 31.2k
 ```
 
-During execution, tools remain fully visible using Pi's native renderer, and thinking condenses to one-line briefs. Pi's working indicator shows friendly elapsed time, for example `Working... (1 minute 53 seconds)`. Compact mode emits one final turn duration such as `(Took 3 seconds.)`; native tool rows retain their own elapsed counter. `Ctrl+O` expands the folded native tool rows and restores the original thinking/tool presentation; pressing it again folds them back.
+During execution, tools remain fully visible using Pi's native renderer, and thinking condenses to one-line briefs. Pi's working indicator shows friendly elapsed time, for example `Working... (1 minute 53 seconds)`. Visible and compact modes emit one final turn duration such as `(Took 3 seconds.)`; native tool rows retain their own elapsed counter. `Ctrl+O` expands the folded native tool rows and restores the original thinking/tool presentation; pressing it again folds them back.
 
 The summary is turn-scoped:
 
