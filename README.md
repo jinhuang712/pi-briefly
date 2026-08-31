@@ -6,16 +6,25 @@ A native-first [Pi](https://github.com/badlogic/pi-mono) extension for reducing 
 
 ## Modes
 
-| Mode | Behavior |
-| --- | --- |
-| `visible` | Native Pi rendering for every tool call and result. |
-| `compact` | Native-like operation briefs plus one-line result summaries; verbose bodies are omitted, while `edit` keeps native diff clipping and `write` keeps a short native preview. |
-| `collapse` | Native rendering while the agent runs; after the turn settles, tool rows are folded and an aggregate summary is shown. |
-| `hidden` | Tool rows and thinking blocks leave one-line stubs (so the transcript never looks like a blank gap); `Ctrl+O` reveals the native content. Execution and model context remain unchanged. |
+Modes are fixed presets: choose one whole presentation policy rather than mixing per-tool switches. They change presentation only; Pi still executes the same built-in tools and sends the same model context.
 
-Long reasoning models (GLM, Claude, GPT-5) can emit very long thinking blocks. `pi-briefly` condenses them with the same presets: `compact` keeps the thinking process fully visible while its message streams and folds each block into a one-line brief (its first meaningful line) the moment the message completes — always before the turn ends; `collapse` shows one-line briefs during the run and `… intermediate steps collapsed` after settlement. Provider-generated concise reasoning summaries, such as GPT's short standalone lines, are left unchanged rather than compressed a second time. `Ctrl+O` restores the native thinking text; `hidden` suppresses thinking entirely; `visible` keeps Pi's native full rendering.
+| Mode | While the agent runs | Thinking | After the turn settles |
+| --- | --- | --- | --- |
+| `visible` | Every tool call and result uses Pi's native renderer. | Native full thinking. | Native tool rows remain; a standalone `Took` line is shown. |
+| `compact` | Calls become short operation briefs and results become one-line summaries. `edit` keeps a clipped native diff; new `write` keeps a short native-highlighted preview. | Streams natively, then each completed block becomes a one-line brief. | Tool rows stay compact; a standalone `Took · spent tokens` line is shown. |
+| `collapse` | Tool calls/results stay native while running. | One-line briefs while running. | Tool rows are folded, thinking becomes `… intermediate steps collapsed`, and one aggregate summary reports time, tool calls, files, context, tokens, and errors. |
+| `hidden` | Tool and thinking detail is replaced by one-line stubs. | `… hidden` stub. | A hidden-step count is shown when tools ran; the final answer remains visible. |
 
-Modes are fixed presets; there is no per-tool override layer.
+### Which mode should I use?
+
+- **`visible`** — want the complete native Pi transcript.
+- **`compact`** — want less output while keeping each operation visible.
+- **`collapse`** — want to watch the run, then keep only a turn summary.
+- **`hidden`** — want the cleanest transcript and do not need process details.
+
+`Working... (elapsed time)` appears during active TUI turns. `visible` and `compact` show a separate final `(Took … · spent … tokens.)` line; `collapse` includes those metrics in its aggregate summary, while `hidden` intentionally keeps process timing hidden. `Ctrl+O` restores native content where the selected presentation supports expansion.
+
+Long reasoning models (GLM, Claude, GPT-5) can emit very long thinking blocks. `pi-briefly` condenses them with the same presets: `compact` keeps the thinking process fully visible while its message streams and folds each block into a one-line brief (its first meaningful line) the moment the message completes — always before the turn ends; `collapse` shows one-line briefs during the run and `… intermediate steps collapsed` after settlement. Provider-generated concise reasoning summaries, such as GPT's short standalone lines, are left unchanged rather than compressed a second time. `hidden` suppresses thinking details; `visible` keeps Pi's native full rendering.
 
 A compact run looks like this:
 
