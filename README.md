@@ -43,7 +43,7 @@ After a settled turn, `collapse` keeps the final answer and displays:
 ✓ spent 11 seconds · 4 tool calls · 1 file read · used context 6.4k (2%) · spent tokens 31.2k
 ```
 
-During execution, tools remain fully visible using Pi's native renderer, and thinking condenses to one-line briefs. Pi's working indicator shows friendly elapsed time, for example `Working... (1 minute 53 seconds)`. Visible and compact modes emit one final turn duration such as `(Took 3 seconds.)`; native tool rows retain their own elapsed counter. `Ctrl+O` expands the folded native tool rows and restores the original thinking/tool presentation; pressing it again folds them back.
+During execution, tools remain fully visible using Pi's native renderer, and thinking condenses to one-line briefs. Pi's working indicator shows friendly elapsed time, for example `Working... (1 minute 53 seconds)`. Visible and compact modes emit one final turn duration such as `(Took 3 seconds · spent 12.3k tokens.)`; native tool rows retain their own elapsed counter. `Ctrl+O` expands the folded native tool rows and restores the original thinking/tool presentation; pressing it again folds them back.
 
 The summary is turn-scoped:
 
@@ -73,6 +73,21 @@ Open the mode selector:
 
 ```text
 /briefly
+```
+
+The TUI lists the active mode first and shows the common turn status examples separately in muted text:
+
+```text
+pi-briefly mode — compact
+
+→ ✓ compact      Compact summary (current)
+    visible      Full native
+    collapse     Fold after run
+    hidden       No UI
+
+Common:
+  Working... (1 minute 53 seconds)
+  Took 3 seconds · spent 12.3k tokens
 ```
 
 Direct commands:
