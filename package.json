@@ -2,9 +2,23 @@
   "name": "pi-briefly",
   "version": "0.1.0",
   "description": "Native-first Pi tool presentation modes with compact and collapse views.",
-  "private": true,
+  "private": false,
   "type": "module",
   "keywords": ["pi-package", "pi-extension", "pi", "tui", "tool-renderer"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jinhuang712/pi-briefly.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jinhuang712/pi-briefly/issues"
+  },
+  "homepage": "https://github.com/jinhuang712/pi-briefly#readme",
+  "files": [
+    "src",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",
     "@earendil-works/pi-tui": "*"
