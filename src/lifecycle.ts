@@ -1,8 +1,8 @@
-import type { LifecycleView, ToolName } from "./types.ts";
+import type { LifecycleView } from "./types.ts";
 
 interface ToolCallRecord {
 	toolCallId: string;
-	toolName: ToolName;
+	toolName: string;
 	runID: number;
 	status: "running" | "completed" | "error";
 	startedAt: number;
@@ -50,7 +50,7 @@ export class LifecycleController {
 		return run;
 	}
 
-	ensure(toolCallID: string, toolName: ToolName, args?: Record<string, unknown>): void {
+	ensure(toolCallID: string, toolName: string, args?: Record<string, unknown>): void {
 		const existing = this.calls.get(toolCallID);
 		if (existing) {
 			this.recordArgs(existing, args);
@@ -59,7 +59,7 @@ export class LifecycleController {
 		this.start(toolCallID, toolName, args);
 	}
 
-	start(toolCallID: string, toolName: ToolName, args?: Record<string, unknown>): void {
+	start(toolCallID: string, toolName: string, args?: Record<string, unknown>): void {
 		if (!this.sessionActive || this.calls.has(toolCallID)) return;
 		this.currentRun.settled = false;
 		this.settled = false;

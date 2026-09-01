@@ -313,8 +313,9 @@ function getBuiltInTools(cwd: string): BuiltInTools {
 	return tools;
 }
 
-function isToolName(value: string): value is ToolName {
-	return (toolNames as readonly string[]).includes(value);
+function isFinalAssistantMessage(message: any): boolean {
+	if (message?.role !== "assistant") return false;
+	return !Array.isArray(message.content) || !message.content.some((part: any) => part?.type === "toolCall");
 }
 
 function collapseSummary(ctx: any, lifecycle: LifecycleController, turnTokens: number, config: BrieflyConfig): string {
@@ -552,6 +553,7 @@ export default function piBriefly(pi: ExtensionAPI): void {
 	let currentConfig = loadConfig(process.cwd()).config;
 	const lifecycle = new LifecycleController();
 	let turnTokens = 0;
+	let collapseSummaryAppended = false;
 	let workingStartedAt: number | undefined;
 	let workingTimer: ReturnType<typeof setInterval> | undefined;
 	const initial = getBuiltInTools(process.cwd()) as Record<string, AnyTool>;
@@ -640,18 +642,31 @@ export default function piBriefly(pi: ExtensionAPI): void {
 	});
 	pi.on("agent_start", (_event, ctx) => {
 		turnTokens = 0;
+		collapseSummaryAppended = false;
 		lifecycle.beginAgent();
 		startWorkingTimer(ctx);
 	});
-	pi.on("message_end", (event) => {
+	pi.on("message_end", (event, ctx) => {
 		const message = event.message as any;
 		if (message.role === "assistant" && typeof message.usage?.totalTokens === "number") {
 			turnTokens += message.usage.totalTokens;
 		}
+
+		// message_end is dispatched before Pi persists the assistant message. Add
+		// the collapse summary here so it becomes the parent of the final answer,
+		// rather than a trailing row below it. Tool execution events include custom
+		// tools too, so the summary still appears for runs such as mcpScript.
+		if (
+			currentConfig.mode === "collapse" &&
+			!collapseSummaryAppended &&
+			isFinalAssistantMessage(message) &&
+			lifecycle.statistics().toolCalls > 0
+		) {
+			pi.appendEntry(COLLAPSE_SUMMARY_TYPE, { summary: collapseSummary(ctx, lifecycle, turnTokens, currentConfig) });
+			collapseSummaryAppended = true;
+		}
 	});
-	pi.on("tool_execution_start", (event) => {
-		if (isToolName(event.toolName)) lifecycle.start(event.toolCallId, event.toolName, event.args);
-	});
+	pi.on("tool_execution_start", (event) => lifecycle.start(event.toolCallId, event.toolName, event.args));
 	pi.on("tool_execution_end", (event) => lifecycle.complete(event.toolCallId, event.isError));
 	pi.on("agent_end", (_event, ctx) => stopWorkingTimer(ctx));
 	pi.on("agent_settled", (_event, ctx) => {
@@ -666,18 +681,24 @@ export default function piBriefly(pi: ExtensionAPI): void {
 			// with tool rows in collapse mode.
 			refreshAssistantMessages(ctx);
 		}
+		// A run can finish without a final assistant message (for example after
+		// an abort). Keep the summary useful in that case, while preserving the
+		// normal before-response placement above.
+		if (currentConfig.mode === "collapse" && stats.toolCalls > 0 && !collapseSummaryAppended) {
+			pi.appendEntry(COLLAPSE_SUMMARY_TYPE, { summary });
+			collapseSummaryAppended = true;
+		}
+		if (currentConfig.mode === "hidden" && stats.toolCalls > 0) {
+			pi.appendEntry(HIDDEN_SUMMARY_TYPE, { count: stats.toolCalls, locale: resolveLocale(currentConfig) });
+		}
+		// Timing is always the final transcript entry, regardless of presentation
+		// mode, so it remains at the bottom of the turn.
 		if (showsTurnDuration(currentConfig.mode)) {
 			pi.appendEntry(TURN_DURATION_TYPE, {
 				durationMs: turnDurationMs,
 				locale: resolveLocale(currentConfig),
 				spentTokens: turnTokens > 0 ? turnTokens : undefined,
 			});
-		}
-		if (currentConfig.mode === "collapse" && stats.toolCalls > 0) {
-			pi.appendEntry(COLLAPSE_SUMMARY_TYPE, { summary });
-		}
-		if (currentConfig.mode === "hidden" && stats.toolCalls > 0) {
-			pi.appendEntry(HIDDEN_SUMMARY_TYPE, { count: stats.toolCalls, locale: resolveLocale(currentConfig) });
 		}
 	});
 	pi.on("session_shutdown", (_event, ctx) => {

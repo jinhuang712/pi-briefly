@@ -1,6 +1,6 @@
 {
   "name": "pi-briefly",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Native-first Pi tool presentation modes with compact and collapse views.",
   "private": false,
   "type": "module",
