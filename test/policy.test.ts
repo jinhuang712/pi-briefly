@@ -8,11 +8,11 @@ test("preset modes are fixed", () => {
 	assert.equal(presetStyle("hidden", { isActive: true, isSettled: false }), "hidden");
 });
 
-test("visible and compact show a final turn duration", () => {
+test("every mode shows a final turn duration", () => {
 	assert.equal(showsTurnDuration("visible"), true);
 	assert.equal(showsTurnDuration("compact"), true);
-	assert.equal(showsTurnDuration("collapse"), false);
-	assert.equal(showsTurnDuration("hidden"), false);
+	assert.equal(showsTurnDuration("collapse"), true);
+	assert.equal(showsTurnDuration("hidden"), true);
 });
 
 test("compact keeps edit and write previews native while limiting them", () => {

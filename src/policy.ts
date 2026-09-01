@@ -42,6 +42,10 @@ export function isContentStyle(style: ToolStyle): boolean {
 	return style === "full" || style === "partial" || style === "highlight" || style === "compact";
 }
 
-export function showsTurnDuration(mode: BrieflyConfig["mode"]): boolean {
-	return mode === "visible" || mode === "compact";
+/**
+ * Turn timing is a transcript-level status line, not tool presentation.
+ * Keep it visible in every preset, including collapse and hidden.
+ */
+export function showsTurnDuration(_mode: BrieflyConfig["mode"]): boolean {
+	return true;
 }

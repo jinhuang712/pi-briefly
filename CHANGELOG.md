@@ -2,8 +2,10 @@
 
 All notable changes to `pi-briefly` are documented here.
 
-## [Unreleased]
+## [0.1.1] - 2026-09-01
 
+- Always append the final `Took · spent tokens` line at the bottom of every mode, and place collapse metrics before the final response.
+- Count custom tool execution events in turn summaries while preserving their native renderers.
 - Added a persistent centered transcript navigation pill for jumping to the prompt and back to the bottom, using Pi's native fullscreen viewport actions; macOS uses `Ctrl+\` and `Ctrl+]` to avoid arrow and function-key conflicts.
 
 ## [0.1.0] - 2026-08-31

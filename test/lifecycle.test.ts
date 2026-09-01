@@ -23,6 +23,14 @@ test("prior collapsed rows stay settled for a new agent", () => {
 	assert.equal(lifecycle.statistics().toolCalls, 0);
 });
 
+test("all tool names contribute to run statistics", () => {
+	const lifecycle = new LifecycleController();
+	lifecycle.beginAgent();
+	lifecycle.start("mcp", "mcpScript");
+	lifecycle.complete("mcp", false);
+	assert.equal(lifecycle.statistics().toolCalls, 1);
+});
+
 test("summary belongs to the first tool and tracks run statistics", () => {
 	const lifecycle = new LifecycleController();
 	lifecycle.beginAgent();
