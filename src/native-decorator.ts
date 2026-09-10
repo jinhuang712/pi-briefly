@@ -214,9 +214,12 @@ export function renderToolResult(
 	const state = stateOf(context);
 	if (presentation === "terse") {
 		// The call row owns the only visible line; the result slot stays empty
-		// and merely flips the status mark (plus one error line when it failed).
-		const phase: ToolPhase = context.isError ? "error" : "done";
-		const errorText = context.isError ? errorExcerpt(result) : undefined;
+		// and merely flips the status mark. Results stream in while the tool is
+		// still running, so only a completed result may flip the mark;
+		// `context.isPartial` describes the call arguments, not the result.
+		const isPartial = options?.isPartial === true;
+		const phase: ToolPhase = isPartial ? "pending" : context.isError ? "error" : "done";
+		const errorText = phase === "error" ? errorExcerpt(result) : undefined;
 		const changed = state.phase !== phase;
 		state.phase = phase;
 		state.errorText = errorText;
