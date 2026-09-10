@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { compactCallParts, compactResultSummary, excerpt, summarizeCommand, toolBrief } from "../src/brief.ts";
+import { BRIEF_MAX_CHARS, briefFromArgs, callParts, errorExcerpt, fallbackBrief, summarizeCommand } from "../src/brief.ts";
 
 test("summarizes common bash purposes", () => {
 	assert.equal(summarizeCommand("git status --short"), "checking git status");
@@ -8,49 +8,47 @@ test("summarizes common bash purposes", () => {
 	assert.equal(summarizeCommand("printf 'elapsed-time test complete\\n'"), "printing elapsed-time test complete");
 });
 
-test("excerpt preserves code lines and marks omitted content", () => {
-	assert.equal(excerpt("one\ntwo\nthree", 100, 2), "one\ntwo...");
-	assert.equal(excerpt("  indented", 100, 2), "  indented");
-});
-
-test("briefs tools by purpose", () => {
-	assert.equal(toolBrief("bash", { command: "git status" }), "bash checking git status git status");
-	assert.equal(toolBrief("read", { path: "src/index.ts" }), "read reading src/index.ts");
-	assert.equal(toolBrief("write", { path: "src/index.ts" }), "write writing src/index.ts");
-	assert.equal(
-		toolBrief("bash", { command: "printf 'elapsed-time test complete\\n'" }),
-		"bash printing elapsed-time test complete printf 'elapsed-time test complete'",
-	);
-});
-
-test("localizes compact purposes and result summaries", () => {
+test("localizes heuristic purposes", () => {
 	assert.equal(summarizeCommand("git status --short", "zh"), "检查 Git 状态");
-	assert.equal(compactCallParts("read", { path: "src/index.ts" }, "zh").purpose, "读取");
-	assert.equal(compactCallParts("read", { path: "README.md" }, "en").purpose, "reviewing docs");
-	assert.equal(compactCallParts("find", { pattern: "*.ts" }, "zh").purpose, "查找文件");
-	assert.equal(compactCallParts("edit", { path: "src/i18n.ts" }, "en").purpose, "resolving locale");
-	assert.equal(compactCallParts("write", { path: "README.md" }, "en").purpose, "updating docs");
-	assert.equal(
-		compactResultSummary("write", { content: "一\n二" }, { content: [] }, "zh"),
-		"已写入 2 行 · 3 字符",
-	);
-	assert.equal(
-		compactResultSummary("grep", undefined, { content: [{ type: "text", text: "a\nb" }] }, "zh"),
-		"找到 2 个匹配项",
-	);
+	assert.equal(callParts("read", { path: "src/index.ts" }, "zh").purpose, "读取");
+	assert.equal(callParts("read", { path: "README.md" }, "en").purpose, "reviewing docs");
+	assert.equal(callParts("find", { pattern: "*.ts" }, "zh").purpose, "查找文件");
+	assert.equal(callParts("edit", { path: "src/i18n.ts" }, "en").purpose, "resolving locale");
+	assert.equal(callParts("write", { path: "README.md" }, "en").purpose, "updating docs");
 });
 
-test("summarizes compact tool results", () => {
+test("fallback briefs describe the call without repeating the tool name", () => {
+	assert.equal(fallbackBrief("read", { path: "src/index.ts" }), "reading src/index.ts");
+	assert.equal(fallbackBrief("read", { path: "src/index.ts" }, "zh"), "读取 src/index.ts");
+	assert.equal(fallbackBrief("bash", { command: "git status" }), "checking git status git status");
+});
+
+test("the model supplied brief wins over the heuristic", () => {
+	assert.equal(briefFromArgs("read", { path: "src/index.ts", brief: "查看入口实现" }), "查看入口实现");
+	// Multi-line and padded briefs collapse to one line.
+	assert.equal(briefFromArgs("read", { path: "src/index.ts", brief: "  查看\n入口   实现  " }), "查看 入口 实现");
+});
+
+test("a missing or blank brief never leaves the row empty", () => {
+	assert.equal(briefFromArgs("read", { path: "src/index.ts" }), "reading src/index.ts");
+	assert.equal(briefFromArgs("read", { path: "src/index.ts", brief: "" }), "reading src/index.ts");
+	assert.equal(briefFromArgs("read", { path: "src/index.ts", brief: "   " }), "reading src/index.ts");
+	assert.equal(briefFromArgs("ls", undefined), "listing .");
+});
+
+test("an overlong brief is clipped to one row", () => {
+	const result = briefFromArgs("read", { path: "src/index.ts", brief: "a".repeat(200) });
+	assert.equal(result.length, BRIEF_MAX_CHARS);
+	assert.ok(result.endsWith("…"));
+});
+
+test("error excerpts stay on one diagnosable line", () => {
 	assert.equal(
-		compactResultSummary("read", undefined, { content: [{ type: "text", text: "one\ntwo\n" }] }),
-		"2 lines read",
+		errorExcerpt({ content: [{ type: "text", text: "  boom\n  failed   here " }] }),
+		"boom failed here",
 	);
-	assert.equal(
-		compactResultSummary("write", { content: "one\ntwo" }, { content: [] }),
-		"2 lines written · 7 chars",
-	);
-	assert.equal(
-		compactResultSummary("bash", undefined, { content: [], isError: true }),
-		"Error",
-	);
+	assert.equal(errorExcerpt({ content: [] }), undefined);
+	assert.equal(errorExcerpt(undefined), undefined);
+	const long = errorExcerpt({ content: [{ type: "text", text: "x".repeat(400) }] }, 100);
+	assert.equal(long?.length, 100);
 });

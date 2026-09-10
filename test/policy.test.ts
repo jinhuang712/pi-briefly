@@ -1,28 +1,20 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { presetStyle, resolveSlot, showsTurnDuration } from "../src/policy.ts";
+import { presentationFor, showsTurnDuration } from "../src/policy.ts";
+import type { BrieflyConfig } from "../src/types.ts";
 
-test("preset modes are fixed", () => {
-	assert.equal(presetStyle("visible", { isActive: false, isSettled: true }), "full");
-	assert.equal(presetStyle("compact", { isActive: true, isSettled: false }), "brief");
-	assert.equal(presetStyle("hidden", { isActive: true, isSettled: false }), "hidden");
+const terse = (value: boolean): BrieflyConfig => ({ version: 2, terse: value, locale: "auto" });
+
+test("the switch is the only presentation input", () => {
+	assert.equal(presentationFor(terse(false)), "native");
+	assert.equal(presentationFor(terse(true)), "terse");
 });
 
-test("every mode shows a final turn duration", () => {
-	assert.equal(showsTurnDuration("visible"), true);
-	assert.equal(showsTurnDuration("compact"), true);
-	assert.equal(showsTurnDuration("collapse"), true);
-	assert.equal(showsTurnDuration("hidden"), true);
+test("expanding a row always falls back to the native presentation", () => {
+	assert.equal(presentationFor(terse(true), true), "native");
+	assert.equal(presentationFor(terse(false), true), "native");
 });
 
-test("compact keeps edit and write previews native while limiting them", () => {
-	const compact = { version: 1 as const, mode: "compact" as const };
-	assert.equal(resolveSlot(compact, "edit", "call", { isActive: true, isSettled: false }).style, "compact");
-	assert.equal(resolveSlot(compact, "write", "call", { isActive: true, isSettled: false }).style, "compact");
-	assert.equal(resolveSlot(compact, "bash", "call", { isActive: true, isSettled: false }).style, "brief");
-});
-
-test("collapse keeps tools native until the agent settles", () => {
-	assert.equal(presetStyle("collapse", { isActive: true, isSettled: false }), "full");
-	assert.equal(presetStyle("collapse", { isActive: false, isSettled: true }), "hidden");
+test("turn duration is shown in both switch positions", () => {
+	assert.equal(showsTurnDuration(), true);
 });

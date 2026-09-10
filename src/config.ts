@@ -2,13 +2,13 @@ import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { isLocale } from "./i18n.ts";
-import type { BrieflyConfig, ConfigScope, Locale, PresetMode } from "./types.ts";
+import type { BrieflyConfig, ConfigScope, Locale } from "./types.ts";
 
-const presetModes = new Set<PresetMode>(["visible", "compact", "collapse", "hidden"]);
+export const CONFIG_VERSION = 2;
 
 export const defaultConfig: BrieflyConfig = {
-	version: 1,
-	mode: "visible",
+	version: CONFIG_VERSION,
+	terse: false,
 	locale: "auto",
 };
 
@@ -18,29 +18,33 @@ export interface LoadedConfig {
 	paths: { global: string; project: string };
 }
 
-type PartialConfig = { mode?: PresetMode; locale?: Locale };
+type PartialConfig = { terse?: boolean; locale?: Locale };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function parseConfig(value: unknown, source: string): { config: PartialConfig; warnings: string[] } {
+export function parseConfig(value: unknown, source: string): { config: PartialConfig; warnings: string[] } {
 	const warnings: string[] = [];
 	if (!isRecord(value)) return { config: {}, warnings: [`${source} must contain a JSON object`] };
 
 	const config: PartialConfig = {};
-	if (value.version !== undefined && value.version !== 1) {
-		warnings.push(`${source}.version is unsupported; using version 1 defaults`);
+	if (value.mode !== undefined) {
+		// pi-briefly used to offer visible/compact/collapse/hidden presets. They
+		// never solved the noise problem, so presentation is now one switch.
+		warnings.push(`${source}: "mode" was removed; pi-briefly now has a single terse switch (run /briefly)`);
+	} else if (value.version !== undefined && value.version !== CONFIG_VERSION) {
+		warnings.push(`${source}: unsupported version ${String(value.version)}; using pi-briefly ${CONFIG_VERSION} defaults`);
 	}
-	if (typeof value.mode === "string" && presetModes.has(value.mode as PresetMode)) {
-		config.mode = value.mode as PresetMode;
-	} else if (value.mode !== undefined) {
-		warnings.push(`${source}.mode is invalid; using the previous mode`);
+	if (typeof value.terse === "boolean") {
+		config.terse = value.terse;
+	} else if (value.terse !== undefined) {
+		warnings.push(`${source}: "terse" must be true or false; ignoring it`);
 	}
 	if (isLocale(value.locale)) {
 		config.locale = value.locale as Locale;
 	} else if (value.locale !== undefined) {
-		warnings.push(`${source}.locale is invalid; using the previous locale`);
+		warnings.push(`${source}: "locale" is invalid; using the previous locale`);
 	}
 	return { config, warnings };
 }
@@ -67,8 +71,8 @@ export function loadConfig(cwd: string): LoadedConfig {
 	const global = readConfigFile(paths.global);
 	const project = readConfigFile(paths.project);
 	const config: BrieflyConfig = {
-		version: 1,
-		mode: project.config.mode ?? global.config.mode ?? defaultConfig.mode,
+		version: CONFIG_VERSION,
+		terse: project.config.terse ?? global.config.terse ?? defaultConfig.terse,
 		locale: project.config.locale ?? global.config.locale ?? defaultConfig.locale,
 	};
 	return { config, warnings: [...global.warnings, ...project.warnings], paths };
@@ -78,18 +82,19 @@ export function saveConfig(cwd: string, scope: ConfigScope, config: BrieflyConfi
 	const path = configPaths(cwd)[scope];
 	mkdirSync(join(path, ".."), { recursive: true });
 	const temporaryPath = `${path}.tmp-${process.pid}`;
-	writeFileSync(temporaryPath, `${JSON.stringify({ version: 1, mode: config.mode, locale: config.locale }, null, 2)}\n`, {
-		encoding: "utf8",
-		mode: 0o600,
-	});
+	writeFileSync(
+		temporaryPath,
+		`${JSON.stringify({ version: CONFIG_VERSION, terse: config.terse, locale: config.locale }, null, 2)}\n`,
+		{ encoding: "utf8", mode: 0o600 },
+	);
 	renameSync(temporaryPath, path);
 	return path;
 }
 
-export function setMode(config: BrieflyConfig, mode: PresetMode): BrieflyConfig {
-	return { version: 1, mode, locale: config.locale };
+export function setTerse(config: BrieflyConfig, terse: boolean): BrieflyConfig {
+	return { version: CONFIG_VERSION, terse, locale: config.locale };
 }
 
 export function setLocale(config: BrieflyConfig, locale: Locale): BrieflyConfig {
-	return { version: 1, mode: config.mode, locale };
+	return { version: CONFIG_VERSION, terse: config.terse, locale };
 }
