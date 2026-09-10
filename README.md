@@ -3,9 +3,9 @@
 A native-first [Pi](https://github.com/badlogic/pi-mono) extension that removes tool-call noise. There is exactly one switch: with terse mode on, every built-in tool call collapses to a single gray line that carries the short description **the model itself wrote** for that call.
 
 ```text
-✓ read (took 0.4s) 查看配置解析逻辑
-✓ bash (elapsed 2.1s) 检查工作区改动状态
-✗ grep (took 0.2s) 搜索旧模式残留
+✓ read (0.4s) 查看配置解析逻辑
+✓ bash (2.1s) 检查工作区改动状态
+✗ grep (0.2s) 搜索旧模式残留
 │ Error: path does not exist
 ```
 
@@ -17,7 +17,7 @@ Pi executes the tools exactly as it always does; `pi-briefly` only changes how t
 2. **The description is never allowed to be missing.** `prepareArguments` runs before schema validation and fills in a heuristic description when the model omits or blanks the argument, so a forgetful model can neither fail the call nor produce an empty row.
 3. **The description never reaches the tool.** Execution delegates to Pi's built-in implementation with the display-only argument stripped, so native behaviour and result shapes are untouched.
 4. **The row is one line, with typography doing the work.** No separator glyphs: a colored status mark, the tool name in bold, the per-call timing in italic parentheses, then the description in plain gray, truncated to the terminal width. Results are not drawn; a failed call keeps one extra red line with a clipped error excerpt so failures stay diagnosable.
-5. **Per-call timing rolls and never lies.** The clock starts when the tool really begins executing, the value repaints once per second while it runs (`(elapsed 2.1s)`) even when the tool prints nothing, and settles to `(took 5.0s)`. A replayed row has no clock and shows no timing rather than a fake `0.0s`.
+5. **Per-call timing rolls and never lies.** The clock starts when the tool really begins executing and the value repaints once per second while it runs, even when the tool prints nothing, then settles on the final duration. Only the number is shown — `(0.4s)`, `(5.0s)` — because the status mark already says whether the call is still running. A replayed row has no clock and shows no timing rather than a fake `0.0s`.
 6. **A missing description still reads clearly.** When the model supplies none, the row shows the heuristic purpose in plain gray and the raw command or path after `›` in italic, brighter gray — `running a shell command › git log --oneline -3` — so a script is never mistaken for prose.
 7. **`Ctrl+O` is always the escape hatch.** Expanded rows render through Pi's native renderer, so syntax highlighting, diffs, images, truncation and streaming all remain available.
 

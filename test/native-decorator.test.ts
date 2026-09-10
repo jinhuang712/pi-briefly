@@ -52,7 +52,7 @@ test("terse renders exactly one line carrying the model brief", () => {
 test("bold names the tool and italic marks timing and raw targets", () => {
 	const ctx = context({ command: "ls", brief: "" }, { executionStarted: true, isPartial: true });
 	const line = renderToolCall("bash", undefined, ctx.args, markedTheme, ctx, "terse", "en").render(200)[0];
-	assert.match(line, /^· B\[bash\] I\[\(elapsed [\d.]+s\)\] listing files › I\[ls\]$/);
+	assert.match(line, /^· B\[bash\] I\[\([\d.]+s\)\] listing files › I\[ls\]$/);
 });
 
 test("the status mark flips to a check once the call finishes", () => {
@@ -99,14 +99,14 @@ test("terse never wraps onto a second line", () => {
 test("the timing sits in front of the brief and keeps moving while the call runs", () => {
 	const ctx = context({ command: "sleep 1", brief: "等待完成" }, { executionStarted: true, isPartial: true });
 	const call = renderToolCall("bash", undefined, ctx.args, theme, ctx, "terse", "zh");
-	assert.match(call.render(80)[0], /^· bash \(elapsed \d+\.\ds\) 等待完成$/);
+	assert.match(call.render(80)[0], /^· bash \(\d+\.\ds\) 等待完成$/);
 
 	// Partial results arrive while the tool still runs: keep counting.
 	renderToolResult("bash", undefined, { content: [{ type: "text", text: "waiting" }] }, { isPartial: true } as any, theme, ctx, "terse");
-	assert.match(call.render(80)[0], /\(elapsed /);
+	assert.match(call.render(80)[0], /^· bash \(\d+\.\ds\) 等待完成$/);
 
 	renderToolResult("bash", undefined, { content: [{ type: "text", text: "done" }] }, { isPartial: false } as any, theme, ctx, "terse");
-	assert.match(call.render(80)[0], /^✓ bash \(took \d+\.\ds\) 等待完成$/);
+	assert.match(call.render(80)[0], /^✓ bash \(\d+\.\ds\) 等待完成$/);
 });
 
 test("a replayed call shows no timing instead of a fake duration", () => {
