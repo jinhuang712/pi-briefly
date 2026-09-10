@@ -36,9 +36,9 @@ test("tolerates schemas without properties or required", () => {
 
 test("keeps the model brief and falls back when it is missing", () => {
 	assert.deepEqual(prepareBriefArguments("read", { path: "a.ts", brief: " 查看实现 " }), { path: "a.ts", brief: " 查看实现 " });
-	assert.deepEqual(prepareBriefArguments("read", { path: "a.ts" }), { path: "a.ts", brief: "reading a.ts" });
-	assert.deepEqual(prepareBriefArguments("read", { path: "a.ts", brief: "" }), { path: "a.ts", brief: "reading a.ts" });
-	assert.deepEqual(prepareBriefArguments("ls", undefined), { brief: "listing ." });
+	assert.deepEqual(prepareBriefArguments("read", { path: "a.ts" }), { path: "a.ts", brief: "reading › a.ts" });
+	assert.deepEqual(prepareBriefArguments("read", { path: "a.ts", brief: "" }), { path: "a.ts", brief: "reading › a.ts" });
+	assert.deepEqual(prepareBriefArguments("ls", undefined), { brief: "listing › ." });
 });
 
 test("strips the display-only parameter before native execution", () => {

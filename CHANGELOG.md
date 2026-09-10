@@ -13,6 +13,7 @@ All notable changes to `pi-briefly` are documented here.
 ### Added
 
 - Terse mode: every built-in tool call renders as a single gray line, `✓ read · 查看配置解析逻辑`, with `✗` and one clipped error line when the call fails.
+- Per-call timing on that line: `Elapsed` while the call runs (ticking once per second even when the tool prints nothing) and `Took` once it finished. Replayed rows show no timing instead of a fake `0.0s`.
 - The model supplies the description: a required `brief` argument is added to the built-in tool schemas while terse mode is on, and one instruction line is appended to the system prompt.
 - `prepareArguments` fills in a heuristic description when the model omits or blanks `brief`, so a missing description can neither fail the tool call nor leave an empty row, and older sessions stay replayable.
 - Execution delegates to Pi's built-in tools with the display-only `brief` argument stripped before the native implementation runs.
@@ -30,8 +31,9 @@ All notable changes to `pi-briefly` are documented here.
 
 ### Fixed
 
-- Flipping the switch now rebuilds the tool rows that are already on screen. Pi exposes no transcript-refresh hook (`setHiddenThinkingLabel` only touches thinking blocks), so the tool-expansion state is re-applied and restored within the same tick, and the caller's notification replaces its transient status message.
+- Flipping the switch now rebuilds the tool rows that are already on screen. Pi exposes no transcript-refresh hook (`setHiddenThinkingLabel` only touches thinking blocks), so the tool-expansion state is re-applied and restored within the same tick, and the caller's notification replaces its transient status message. The refresh is skipped on session start, where there is nothing to rebuild and it would leave a stray `Tool output: collapsed` status behind.
 - A tool row keeps the pending mark (`·`) and streams the description as the model produces it; a partial result arriving mid-execution no longer flips the row to `✓` before the call completes.
+- Heuristic descriptions separate the purpose from the raw command or path with `›`; they used to be joined by a space and read as one sentence.
 
 ### Verification
 

@@ -1,6 +1,7 @@
 import type { Theme, ToolRenderResultOptions } from "@earendil-works/pi-coding-agent";
 import { Box, type Component, Text, truncateToWidth } from "@earendil-works/pi-tui";
 import { briefFromArgs, errorExcerpt } from "./brief.ts";
+import { formatCallDuration } from "./summary.ts";
 import type { Presentation, ResolvedLocale, ToolName, ToolPhase } from "./types.ts";
 
 export interface RenderContext {
@@ -40,6 +41,25 @@ interface RowState {
 	emptyResult?: Component;
 	phase: ToolPhase;
 	errorText?: string;
+	startedAt?: number;
+	endedAt?: number;
+	invalidate?: () => void;
+}
+
+/**
+ * Rows whose call is still running. The turn timer repaints them once per
+ * second so the `Elapsed` value keeps moving even when a tool prints nothing.
+ */
+const pendingTimingRows = new Set<RowState>();
+
+export function tickPendingTiming(): void {
+	for (const state of pendingTimingRows) {
+		if (state.startedAt === undefined || state.endedAt !== undefined) {
+			pendingTimingRows.delete(state);
+			continue;
+		}
+		state.invalidate?.();
+	}
 }
 
 class EmptyComponent implements Component {
@@ -71,6 +91,19 @@ class TerseLine implements Component {
 		this.brief = brief;
 	}
 
+	/**
+	 * `Elapsed` while the call runs, `Took` once it finished - the same wording
+	 * Pi's native rows use. A replayed session has no start time, so it shows no
+	 * timing at all rather than a bogus `0.0s`.
+	 */
+	private timing(): string | undefined {
+		const { startedAt, endedAt } = this.state;
+		if (startedAt === undefined) return undefined;
+		if (this.state.phase === "pending") return `Elapsed ${formatCallDuration(Date.now() - startedAt)}`;
+		if (endedAt === undefined) return undefined;
+		return `Took ${formatCallDuration(endedAt - startedAt)}`;
+	}
+
 	render(width: number): string[] {
 		const theme = this.theme;
 		const mark = this.state.phase === "done"
@@ -78,7 +111,10 @@ class TerseLine implements Component {
 			: this.state.phase === "error"
 				? theme.fg("error", "✗")
 				: theme.fg("dim", "·");
-		const line = `${mark} ${theme.fg("muted", this.tool)} ${theme.fg("dim", "·")} ${theme.fg("dim", this.brief)}`;
+		const separator = ` ${theme.fg("dim", "·")} `;
+		let line = `${mark} ${theme.fg("muted", this.tool)}${separator}${theme.fg("dim", this.brief)}`;
+		const timing = this.timing();
+		if (timing) line += `${separator}${theme.fg("muted", timing)}`;
 		const lines = [truncateToWidth(line, width, "…")];
 		if (this.state.phase === "error" && this.state.errorText) {
 			lines.push(truncateToWidth(`${theme.fg("muted", "│")} ${theme.fg("error", this.state.errorText)}`, width, "…"));
@@ -189,6 +225,11 @@ export function renderToolCall(
 		const line = state.line ?? new TerseLine(theme, tool, state);
 		state.line = line;
 		line.setBrief(briefFromArgs(tool, (args ?? {}) as Record<string, unknown>, locale));
+		// Mirror Pi's native rows: the clock starts when execution really starts,
+		// which also keeps replayed sessions from reporting a fake duration.
+		if (context.executionStarted && state.startedAt === undefined) state.startedAt = Date.now();
+		state.invalidate = context.invalidate;
+		if (state.startedAt !== undefined && state.endedAt === undefined) pendingTimingRows.add(state);
 		row.setCall(line);
 		row.setStatus(context.isPartial, context.isError);
 		return row;
@@ -220,9 +261,16 @@ export function renderToolResult(
 		const isPartial = options?.isPartial === true;
 		const phase: ToolPhase = isPartial ? "pending" : context.isError ? "error" : "done";
 		const errorText = phase === "error" ? errorExcerpt(result) : undefined;
-		const changed = state.phase !== phase;
+		// The clock stops with the finished result, matching Pi's native rows.
+		const finished = !isPartial && state.startedAt !== undefined && state.endedAt === undefined;
+		const changed = state.phase !== phase || finished;
 		state.phase = phase;
 		state.errorText = errorText;
+		state.invalidate = context.invalidate;
+		if (finished) {
+			state.endedAt = Date.now();
+			pendingTimingRows.delete(state);
+		}
 		state.row?.setResult(undefined);
 		state.row?.setStatus(false, context.isError);
 		if (changed) context.invalidate?.();

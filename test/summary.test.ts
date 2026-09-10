@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { formatDuration, formatTook, formatTokens } from "../src/summary.ts";
+import { formatCallDuration, formatDuration, formatTook, formatTokens } from "../src/summary.ts";
 
 test("formats elapsed durations with friendly units", () => {
 	assert.equal(formatDuration(0), "0 seconds");
@@ -20,4 +20,13 @@ test("formats unknown and large token counts safely", () => {
 	assert.equal(formatTokens(12_345), "12.3k");
 	assert.equal(formatTokens(200_000), "200k");
 	assert.equal(formatTokens(1_500_000), "1.5m");
+});
+
+test("formats per-call durations compactly", () => {
+	assert.equal(formatCallDuration(0), "0.0s");
+	assert.equal(formatCallDuration(420), "0.4s");
+	assert.equal(formatCallDuration(9_940), "9.9s");
+	assert.equal(formatCallDuration(12_400), "12s");
+	assert.equal(formatCallDuration(83_000), "1m 23s");
+	assert.equal(formatCallDuration(3_900_000), "1h 05m");
 });

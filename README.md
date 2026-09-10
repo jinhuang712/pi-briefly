@@ -3,9 +3,9 @@
 A native-first [Pi](https://github.com/badlogic/pi-mono) extension that removes tool-call noise. There is exactly one switch: with terse mode on, every built-in tool call collapses to a single gray line that carries the short description **the model itself wrote** for that call.
 
 ```text
-✓ read · 查看配置解析逻辑
-✓ bash · 检查工作区改动状态
-✗ grep · 搜索旧模式残留
+✓ read · 查看配置解析逻辑 · Took 0.4s
+✓ bash · 检查工作区改动状态 · Elapsed 2.1s
+✗ grep · 搜索旧模式残留 · Took 0.2s
 │ Error: path does not exist
 ```
 
@@ -16,8 +16,10 @@ Pi executes the tools exactly as it always does; `pi-briefly` only changes how t
 1. **The model writes the description.** While terse mode is on, `pi-briefly` adds a required `brief` argument to the built-in tool schemas (`bash`, `read`, `write`, `edit`, `find`, `grep`, `ls`) and appends a short instruction to the system prompt. The model supplies one line (≤ 80 characters) explaining why it is calling that tool.
 2. **The description is never allowed to be missing.** `prepareArguments` runs before schema validation and fills in a heuristic description when the model omits or blanks the argument, so a forgetful model can neither fail the call nor produce an empty row.
 3. **The description never reaches the tool.** Execution delegates to Pi's built-in implementation with the display-only argument stripped, so native behaviour and result shapes are untouched.
-4. **The row is one line.** Terse rows skip the native box entirely: a status mark, the tool name, and the model's description, truncated to the terminal width. Results are not drawn; a failed call keeps one extra red line with a clipped error excerpt so failures stay diagnosable.
-5. **`Ctrl+O` is always the escape hatch.** Expanded rows render through Pi's native renderer, so syntax highlighting, diffs, images, truncation and streaming all remain available.
+4. **The row is one line.** Terse rows skip the native box entirely: a status mark, the tool name, the description, and the per-call timing, truncated to the terminal width. Results are not drawn; a failed call keeps one extra red line with a clipped error excerpt so failures stay diagnosable.
+5. **Timing never lies.** A running call shows `Elapsed`, and the value keeps moving even when the tool prints nothing; the finished call shows `Took`. A replayed row has no clock and shows no timing rather than a fake `0.0s`.
+6. **A missing description still reads clearly.** When the model does not supply one, the row shows the heuristic purpose and the raw target separated by `›` — `running a shell command › git log --oneline -3` — so a script is never mistaken for prose.
+7. **`Ctrl+O` is always the escape hatch.** Expanded rows render through Pi's native renderer, so syntax highlighting, diffs, images, truncation and streaming all remain available.
 
 With the switch off, the built-in tools are registered with their original schemas and rendered natively — the extension is inert.
 

@@ -14,6 +14,10 @@ const theme = {
 
 const options = {} as any;
 
+/**
+ * Defaults describe a replayed row: nothing is executing, so no per-call clock
+ * runs. Timing has its own tests below.
+ */
 function context(args: Record<string, unknown>, overrides: Partial<RenderContext> = {}): RenderContext {
 	return {
 		args,
@@ -21,7 +25,7 @@ function context(args: Record<string, unknown>, overrides: Partial<RenderContext
 		invalidate: () => {},
 		state: {},
 		cwd: "/tmp",
-		executionStarted: true,
+		executionStarted: false,
 		argsComplete: true,
 		isPartial: false,
 		expanded: false,
@@ -65,9 +69,29 @@ test("a failed call stays diagnosable on one extra line", () => {
 test("terse falls back to the heuristic when the model sends no brief", () => {
 	const ctx = context({ path: "src/index.ts" });
 	assert.deepEqual(renderToolCall("read", undefined, ctx.args, theme, ctx, "terse", "zh").render(80), [
-		"· read · 读取 src/index.ts",
+		"· read · 读取 › src/index.ts",
 	]);
-	assert.deepEqual(renderToolCall("ls", undefined, {}, theme, context({}), "terse", "en").render(80), ["· ls · listing ."]);
+	assert.deepEqual(renderToolCall("ls", undefined, {}, theme, context({}), "terse", "en").render(80), ["· ls · listing › ."]);
+});
+
+test("a running call shows Elapsed and a finished call shows Took", () => {
+	const ctx = context({ command: "sleep 1", brief: "等待完成" }, { executionStarted: true, isPartial: true });
+	const call = renderToolCall("bash", undefined, ctx.args, theme, ctx, "terse", "zh");
+	assert.match(call.render(80)[0], /^· bash · 等待完成 · Elapsed \d+\.\ds$/);
+
+	// Partial results arrive while the tool still runs: keep counting.
+	renderToolResult("bash", undefined, { content: [{ type: "text", text: "waiting" }] }, { isPartial: true } as any, theme, ctx, "terse");
+	assert.match(call.render(80)[0], /Elapsed /);
+
+	renderToolResult("bash", undefined, { content: [{ type: "text", text: "done" }] }, { isPartial: false } as any, theme, ctx, "terse");
+	assert.match(call.render(80)[0], /^✓ bash · 等待完成 · Took \d+\.\ds$/);
+});
+
+test("a replayed call shows no timing instead of a fake duration", () => {
+	const ctx = context({ path: "a.ts", brief: "查看实现" }, { executionStarted: false });
+	const call = renderToolCall("read", undefined, ctx.args, theme, ctx, "terse", "zh");
+	renderToolResult("read", undefined, { content: [{ type: "text", text: "ok" }] }, { isPartial: false } as any, theme, ctx, "terse");
+	assert.deepEqual(call.render(80), ["✓ read · 查看实现"]);
 });
 
 test("terse never wraps onto a second line", () => {
