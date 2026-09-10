@@ -31,7 +31,7 @@ import {
 	type TranscriptNavigationPosition,
 	workingMessage,
 } from "./i18n.ts";
-import { renderToolCall, renderToolResult, type RenderContext } from "./native-decorator.ts";
+import { renderToolCall, renderToolResult, tickPendingTiming, type RenderContext } from "./native-decorator.ts";
 import { presentationFor, showsTurnDuration } from "./policy.ts";
 import { formatDuration, formatTook } from "./summary.ts";
 import { type BrieflyConfig, type Locale, type ToolName, toolNames } from "./types.ts";
@@ -461,10 +461,14 @@ export default function piBriefly(pi: ExtensionAPI): void {
 	 * `pi.registerTool()` refreshes the tool registry immediately, so both the
 	 * schema and the renderers follow the new value.
 	 */
-	const applyPresentation = (ctx?: any): void => {
+	const applyToolSchemas = (): void => {
 		for (const toolName of toolNames) {
 			registerToolOverride(pi, toolName, initial[toolName], getConfig);
 		}
+	};
+
+	const applyPresentation = (ctx?: any): void => {
+		applyToolSchemas();
 		refreshTranscript(ctx);
 	};
 
@@ -479,6 +483,9 @@ export default function piBriefly(pi: ExtensionAPI): void {
 		if (!ctx.hasUI) return;
 		workingStartedAt = Date.now();
 		const update = (): void => {
+			// Keep the `Elapsed` value of running tool rows moving even when a tool
+			// produces no output of its own.
+			tickPendingTiming();
 			if (workingStartedAt === undefined) return;
 			const locale = resolveLocale(currentConfig);
 			const elapsed = formatDuration(Date.now() - workingStartedAt, locale);
@@ -490,7 +497,9 @@ export default function piBriefly(pi: ExtensionAPI): void {
 
 	pi.on("session_start", async (_event, ctx) => {
 		reloadConfig(ctx.cwd, ctx.hasUI ? (message, level) => ctx.ui.notify(message, level) : undefined);
-		applyPresentation(ctx);
+		// Nothing is on screen yet, so only the schemas need to follow the switch
+		// here; a transcript refresh would leave its status message behind.
+		applyToolSchemas();
 		setNavigationHint(ctx, currentConfig);
 		setStickyPromptPreview(ctx);
 	});

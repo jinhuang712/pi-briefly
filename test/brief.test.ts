@@ -17,10 +17,10 @@ test("localizes heuristic purposes", () => {
 	assert.equal(callParts("write", { path: "README.md" }, "en").purpose, "updating docs");
 });
 
-test("fallback briefs describe the call without repeating the tool name", () => {
-	assert.equal(fallbackBrief("read", { path: "src/index.ts" }), "reading src/index.ts");
-	assert.equal(fallbackBrief("read", { path: "src/index.ts" }, "zh"), "读取 src/index.ts");
-	assert.equal(fallbackBrief("bash", { command: "git status" }), "checking git status git status");
+test("fallback briefs keep the purpose and the raw target apart", () => {
+	assert.equal(fallbackBrief("read", { path: "src/index.ts" }), "reading › src/index.ts");
+	assert.equal(fallbackBrief("read", { path: "src/index.ts" }, "zh"), "读取 › src/index.ts");
+	assert.equal(fallbackBrief("bash", { command: "git status" }), "checking git status › git status");
 });
 
 test("the model supplied brief wins over the heuristic", () => {
@@ -30,10 +30,10 @@ test("the model supplied brief wins over the heuristic", () => {
 });
 
 test("a missing or blank brief never leaves the row empty", () => {
-	assert.equal(briefFromArgs("read", { path: "src/index.ts" }), "reading src/index.ts");
-	assert.equal(briefFromArgs("read", { path: "src/index.ts", brief: "" }), "reading src/index.ts");
-	assert.equal(briefFromArgs("read", { path: "src/index.ts", brief: "   " }), "reading src/index.ts");
-	assert.equal(briefFromArgs("ls", undefined), "listing .");
+	assert.equal(briefFromArgs("read", { path: "src/index.ts" }), "reading › src/index.ts");
+	assert.equal(briefFromArgs("read", { path: "src/index.ts", brief: "" }), "reading › src/index.ts");
+	assert.equal(briefFromArgs("read", { path: "src/index.ts", brief: "   " }), "reading › src/index.ts");
+	assert.equal(briefFromArgs("ls", undefined), "listing › .");
 });
 
 test("an overlong brief is clipped to one row", () => {

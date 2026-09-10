@@ -134,7 +134,9 @@ export function callParts(tool: ToolName, args: Record<string, unknown>, locale:
 
 export function fallbackBrief(tool: ToolName, args: Record<string, unknown>, locale: ResolvedLocale = "en"): string {
 	const parts = callParts(tool, args, locale);
-	return clip([parts.purpose, parts.detail].filter(Boolean).join(" "), BRIEF_MAX_CHARS);
+	// The purpose and the concrete target are different kinds of information:
+	// keep them visually apart so a raw script is never mistaken for prose.
+	return clip([parts.purpose, parts.detail].filter(Boolean).join(" › "), BRIEF_MAX_CHARS);
 }
 
 /**
