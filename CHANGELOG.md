@@ -2,7 +2,7 @@
 
 All notable changes to `pi-briefly` are documented here.
 
-## [Unreleased]
+## [0.2.0] - 2026-09-10
 
 ### Breaking changes
 
@@ -22,6 +22,7 @@ All notable changes to `pi-briefly` are documented here.
 
 - The switch drives the tool schema as well as rendering: with terse mode off, tools are registered with their original schemas so the model is never asked for a description nobody displays.
 - Terse rows skip the native box; native rows keep Pi's background, padding, and status colours.
+- Added `npm run typecheck` (`tsconfig.json`, `typescript` and `@types/node` dev dependencies) and fixed the remaining type errors, so type regressions no longer slip past `node --experimental-strip-types`, which only strips types.
 
 ### Removed
 
@@ -30,8 +31,9 @@ All notable changes to `pi-briefly` are documented here.
 ### Verification
 
 - Unit tests: 34 passing, covering the switch policy, the `brief` contract (schema, fallback, stripping), terse/native rendering, configuration validation, and localization.
+- `npm run typecheck` passes with no errors (`tsconfig.json` + `tsc --noEmit`).
 - End-to-end JSON run with terse mode on: the model supplied `brief` (`查看工作区改动状态`) and the `bash` call executed successfully with the argument stripped.
-- Headless tool-registry probe: with the switch off the built-in schemas are unchanged; with it on, `brief` is required and localized.
+- Headless tool-registry probe: with the switch off the built-in schemas are unchanged; with it on, `brief` is required and localized; flipping the switch mid-session re-registers the schemas immediately.
 - TUI verification still required for rendering changes: toggle, `Ctrl+O`, streaming/partial rows, and failing rows.
 
 ## [0.1.1] - 2026-09-01
