@@ -9,7 +9,6 @@ import {
 	notifyUsage,
 	resolveLocale,
 	terseLabel,
-	workingMessage,
 } from "../src/i18n.ts";
 
 test("resolves explicit and automatic locales", () => {
@@ -43,5 +42,4 @@ test("keeps the fullscreen navigation pill", () => {
 		getTranscriptNavigationPill("en", "Ctrl+\\", "Ctrl+]", "middle"),
 		"Jump to prompt (Ctrl+\\) ↑  ·  Jump to bottom (Ctrl+]) ↓",
 	);
-	assert.equal(workingMessage("zh", "1 分钟"), "执行中... (1 分钟)");
 });

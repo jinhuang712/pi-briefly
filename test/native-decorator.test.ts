@@ -12,6 +12,14 @@ const theme = {
 	italic: (text: string) => text,
 } as any;
 
+// Marks the modifiers so the typographic hierarchy itself can be asserted.
+const markedTheme = {
+	fg: (_name: string, text: string) => text,
+	bg: (_name: string, text: string) => text,
+	bold: (text: string) => `B[${text}]`,
+	italic: (text: string) => `I[${text}]`,
+} as any;
+
 const options = {} as any;
 
 /**
@@ -38,7 +46,13 @@ function context(args: Record<string, unknown>, overrides: Partial<RenderContext
 test("terse renders exactly one line carrying the model brief", () => {
 	const ctx = context({ path: "src/index.ts", brief: "查看入口实现" });
 	const component = renderToolCall("read", undefined, ctx.args, theme, ctx, "terse", "zh");
-	assert.deepEqual(component.render(80), ["· read · 查看入口实现"]);
+	assert.deepEqual(component.render(80), ["· read 查看入口实现"]);
+});
+
+test("bold names the tool and italic marks timing and raw targets", () => {
+	const ctx = context({ command: "ls", brief: "" }, { executionStarted: true, isPartial: true });
+	const line = renderToolCall("bash", undefined, ctx.args, markedTheme, ctx, "terse", "en").render(200)[0];
+	assert.match(line, /^· B\[bash\] I\[\(elapsed [\d.]+s\)\] listing files › I\[ls\]$/);
 });
 
 test("the status mark flips to a check once the call finishes", () => {
@@ -48,7 +62,7 @@ test("the status mark flips to a check once the call finishes", () => {
 
 	const resultSlot = renderToolResult("read", undefined, { content: [{ type: "text", text: "ok" }] }, options, theme, ctx, "terse");
 	assert.deepEqual(resultSlot.render(80), []);
-	assert.deepEqual(call.render(80), ["✓ read · 查看入口实现"]);
+	assert.deepEqual(call.render(80), ["✓ read 查看入口实现"]);
 });
 
 test("a failed call stays diagnosable on one extra line", () => {
@@ -63,35 +77,15 @@ test("a failed call stays diagnosable on one extra line", () => {
 		{ ...ctx, isError: true },
 		"terse",
 	);
-	assert.deepEqual(call.render(80), ["✗ bash · 探测失败", "│ boom bad thing"]);
+	assert.deepEqual(call.render(80), ["✗ bash 探测失败", "│ boom bad thing"]);
 });
 
 test("terse falls back to the heuristic when the model sends no brief", () => {
 	const ctx = context({ path: "src/index.ts" });
 	assert.deepEqual(renderToolCall("read", undefined, ctx.args, theme, ctx, "terse", "zh").render(80), [
-		"· read · 读取 › src/index.ts",
+		"· read 读取 › src/index.ts",
 	]);
-	assert.deepEqual(renderToolCall("ls", undefined, {}, theme, context({}), "terse", "en").render(80), ["· ls · listing › ."]);
-});
-
-test("a running call shows Elapsed and a finished call shows Took", () => {
-	const ctx = context({ command: "sleep 1", brief: "等待完成" }, { executionStarted: true, isPartial: true });
-	const call = renderToolCall("bash", undefined, ctx.args, theme, ctx, "terse", "zh");
-	assert.match(call.render(80)[0], /^· bash · 等待完成 · Elapsed \d+\.\ds$/);
-
-	// Partial results arrive while the tool still runs: keep counting.
-	renderToolResult("bash", undefined, { content: [{ type: "text", text: "waiting" }] }, { isPartial: true } as any, theme, ctx, "terse");
-	assert.match(call.render(80)[0], /Elapsed /);
-
-	renderToolResult("bash", undefined, { content: [{ type: "text", text: "done" }] }, { isPartial: false } as any, theme, ctx, "terse");
-	assert.match(call.render(80)[0], /^✓ bash · 等待完成 · Took \d+\.\ds$/);
-});
-
-test("a replayed call shows no timing instead of a fake duration", () => {
-	const ctx = context({ path: "a.ts", brief: "查看实现" }, { executionStarted: false });
-	const call = renderToolCall("read", undefined, ctx.args, theme, ctx, "terse", "zh");
-	renderToolResult("read", undefined, { content: [{ type: "text", text: "ok" }] }, { isPartial: false } as any, theme, ctx, "terse");
-	assert.deepEqual(call.render(80), ["✓ read · 查看实现"]);
+	assert.deepEqual(renderToolCall("ls", undefined, {}, theme, context({}), "terse", "en").render(80), ["· ls listing › ."]);
 });
 
 test("terse never wraps onto a second line", () => {
@@ -102,6 +96,26 @@ test("terse never wraps onto a second line", () => {
 	assert.ok(visibleWidth(lines[0]) <= 40, `expected <= 40 columns, got ${visibleWidth(lines[0])}`);
 });
 
+test("the timing sits in front of the brief and keeps moving while the call runs", () => {
+	const ctx = context({ command: "sleep 1", brief: "等待完成" }, { executionStarted: true, isPartial: true });
+	const call = renderToolCall("bash", undefined, ctx.args, theme, ctx, "terse", "zh");
+	assert.match(call.render(80)[0], /^· bash \(elapsed \d+\.\ds\) 等待完成$/);
+
+	// Partial results arrive while the tool still runs: keep counting.
+	renderToolResult("bash", undefined, { content: [{ type: "text", text: "waiting" }] }, { isPartial: true } as any, theme, ctx, "terse");
+	assert.match(call.render(80)[0], /\(elapsed /);
+
+	renderToolResult("bash", undefined, { content: [{ type: "text", text: "done" }] }, { isPartial: false } as any, theme, ctx, "terse");
+	assert.match(call.render(80)[0], /^✓ bash \(took \d+\.\ds\) 等待完成$/);
+});
+
+test("a replayed call shows no timing instead of a fake duration", () => {
+	const ctx = context({ path: "a.ts", brief: "查看实现" }, { executionStarted: false });
+	const call = renderToolCall("read", undefined, ctx.args, theme, ctx, "terse", "zh");
+	renderToolResult("read", undefined, { content: [{ type: "text", text: "ok" }] }, { isPartial: false } as any, theme, ctx, "terse");
+	assert.deepEqual(call.render(80), ["✓ read 查看实现"]);
+});
+
 test("a streaming result keeps the mark pending until the call completes", () => {
 	const ctx = context({ command: "sleep 6", brief: "等待六秒" }, { isPartial: true });
 	const call = renderToolCall("bash", undefined, ctx.args, theme, ctx, "terse", "zh");
@@ -109,10 +123,10 @@ test("a streaming result keeps the mark pending until the call completes", () =>
 	// Partial results arrive while the tool is still running: the row must not
 	// claim success yet.
 	renderToolResult("bash", undefined, { content: [{ type: "text", text: "waiting" }] }, { isPartial: true } as any, theme, ctx, "terse");
-	assert.deepEqual(call.render(80), ["· bash · 等待六秒"]);
+	assert.deepEqual(call.render(80), ["· bash 等待六秒"]);
 
 	renderToolResult("bash", undefined, { content: [{ type: "text", text: "done" }] }, { isPartial: false } as any, theme, ctx, "terse");
-	assert.deepEqual(call.render(80), ["✓ bash · 等待六秒"]);
+	assert.deepEqual(call.render(80), ["✓ bash 等待六秒"]);
 });
 
 test("native presentation keeps Pi's own renderers and reuses the row", () => {
@@ -139,5 +153,5 @@ test("rows keep one instance per tool call across re-renders", () => {
 	ctx.args = { path: "a.ts", brief: "更新版" };
 	const second = renderToolCall("read", undefined, ctx.args, theme, ctx, "terse", "zh");
 	assert.equal(first, second);
-	assert.deepEqual(second.render(80), ["· read · 更新版"]);
+	assert.deepEqual(second.render(80), ["· read 更新版"]);
 });

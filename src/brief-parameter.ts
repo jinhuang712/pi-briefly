@@ -1,4 +1,4 @@
-import { BRIEF_MAX_CHARS, fallbackBrief } from "./brief.ts";
+import { BRIEF_MAX_CHARS } from "./brief.ts";
 import { BRIEF_PARAMETER, type ResolvedLocale, type ToolName } from "./types.ts";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -34,19 +34,20 @@ export function withBriefParameter(parameters: unknown, locale: ResolvedLocale =
 
 /**
  * Runs before schema validation. The model is asked for a brief, but a missing
- * one must never fail the tool call: fall back to the heuristic text so the
- * row is still meaningful. This also keeps older sessions replayable after the
- * parameter was introduced.
+ * one must never fail the tool call: the row derives its own description when
+ * the value is absent or blank, so an empty string is enough to satisfy the
+ * required field without inventing text the model never wrote. This also keeps
+ * older sessions replayable after the parameter was introduced.
  */
 export function prepareBriefArguments(
 	tool: ToolName,
 	args: unknown,
-	locale: ResolvedLocale = "en",
+	_locale: ResolvedLocale = "en",
 ): Record<string, unknown> {
 	const input = isRecord(args) ? args : {};
 	const existing = typeof input[BRIEF_PARAMETER] === "string" ? (input[BRIEF_PARAMETER] as string).trim() : "";
 	if (existing) return input;
-	return { ...input, [BRIEF_PARAMETER]: fallbackBrief(tool, input, locale) };
+	return { ...input, [BRIEF_PARAMETER]: "" };
 }
 
 /**

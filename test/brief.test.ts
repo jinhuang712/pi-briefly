@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { BRIEF_MAX_CHARS, briefFromArgs, callParts, errorExcerpt, fallbackBrief, summarizeCommand } from "../src/brief.ts";
+import { BRIEF_MAX_CHARS, briefFromArgs, callParts, describeCall, errorExcerpt, summarizeCommand } from "../src/brief.ts";
 
 test("summarizes common bash purposes", () => {
 	assert.equal(summarizeCommand("git status --short"), "checking git status");
@@ -17,23 +17,22 @@ test("localizes heuristic purposes", () => {
 	assert.equal(callParts("write", { path: "README.md" }, "en").purpose, "updating docs");
 });
 
-test("fallback briefs keep the purpose and the raw target apart", () => {
-	assert.equal(fallbackBrief("read", { path: "src/index.ts" }), "reading › src/index.ts");
-	assert.equal(fallbackBrief("read", { path: "src/index.ts" }, "zh"), "读取 › src/index.ts");
-	assert.equal(fallbackBrief("bash", { command: "git status" }), "checking git status › git status");
-});
-
-test("the model supplied brief wins over the heuristic", () => {
-	assert.equal(briefFromArgs("read", { path: "src/index.ts", brief: "查看入口实现" }), "查看入口实现");
+test("the model supplied brief wins and carries no heuristic detail", () => {
+	assert.deepEqual(describeCall("read", { path: "src/index.ts", brief: "查看入口实现" }), { brief: "查看入口实现" });
 	// Multi-line and padded briefs collapse to one line.
-	assert.equal(briefFromArgs("read", { path: "src/index.ts", brief: "  查看\n入口   实现  " }), "查看 入口 实现");
+	assert.deepEqual(describeCall("read", { path: "src/index.ts", brief: "  查看\n入口   实现  " }), { brief: "查看 入口 实现" });
+	assert.equal(briefFromArgs("read", { path: "src/index.ts", brief: "查看入口实现" }), "查看入口实现");
 });
 
-test("a missing or blank brief never leaves the row empty", () => {
-	assert.equal(briefFromArgs("read", { path: "src/index.ts" }), "reading › src/index.ts");
-	assert.equal(briefFromArgs("read", { path: "src/index.ts", brief: "" }), "reading › src/index.ts");
-	assert.equal(briefFromArgs("read", { path: "src/index.ts", brief: "   " }), "reading › src/index.ts");
+test("a missing or blank brief falls back to a structured description", () => {
+	const expected = { brief: "reading", detail: "src/index.ts" };
+	assert.deepEqual(describeCall("read", { path: "src/index.ts" }), expected);
+	assert.deepEqual(describeCall("read", { path: "src/index.ts", brief: "" }), expected);
+	assert.deepEqual(describeCall("read", { path: "src/index.ts", brief: "   " }), expected);
+	assert.deepEqual(describeCall("read", { path: "src/index.ts" }, "zh"), { brief: "读取", detail: "src/index.ts" });
 	assert.equal(briefFromArgs("ls", undefined), "listing › .");
+	// The purpose and the raw target stay separate pieces of information.
+	assert.deepEqual(describeCall("bash", { command: "git status" }), { brief: "checking git status", detail: "git status" });
 });
 
 test("an overlong brief is clipped to one row", () => {

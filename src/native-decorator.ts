@@ -1,6 +1,6 @@
 import type { Theme, ToolRenderResultOptions } from "@earendil-works/pi-coding-agent";
 import { Box, type Component, Text, truncateToWidth } from "@earendil-works/pi-tui";
-import { briefFromArgs, errorExcerpt } from "./brief.ts";
+import { describeCall, errorExcerpt, type CallDescription } from "./brief.ts";
 import { formatCallDuration } from "./summary.ts";
 import type { Presentation, ResolvedLocale, ToolName, ToolPhase } from "./types.ts";
 
@@ -47,19 +47,30 @@ interface RowState {
 }
 
 /**
- * Rows whose call is still running. The turn timer repaints them once per
- * second so the `Elapsed` value keeps moving even when a tool prints nothing.
+ * Rows whose call is still running. Each one repaints itself once per second so
+ * the elapsed value keeps moving even when a tool prints nothing. The timer
+ * exists only while something is actually running, and it never touches Pi's
+ * working indicator - turn timing belongs to `pi-elapsed`.
  */
 const pendingTimingRows = new Set<RowState>();
+let tickTimer: ReturnType<typeof setInterval> | undefined;
 
-export function tickPendingTiming(): void {
-	for (const state of pendingTimingRows) {
-		if (state.startedAt === undefined || state.endedAt !== undefined) {
-			pendingTimingRows.delete(state);
-			continue;
+function stopTicking(): void {
+	if (tickTimer === undefined) return;
+	clearInterval(tickTimer);
+	tickTimer = undefined;
+}
+
+function ensureTicking(): void {
+	if (tickTimer !== undefined) return;
+	tickTimer = setInterval(() => {
+		for (const state of pendingTimingRows) {
+			if (state.startedAt === undefined || state.endedAt !== undefined) pendingTimingRows.delete(state);
+			else state.invalidate?.();
 		}
-		state.invalidate?.();
-	}
+		if (pendingTimingRows.size === 0) stopTicking();
+	}, 1000);
+	(tickTimer as { unref?: () => void }).unref?.();
 }
 
 class EmptyComponent implements Component {
@@ -71,11 +82,16 @@ class EmptyComponent implements Component {
 }
 
 /**
- * The whole point of pi-briefly: one gray line per tool call, carrying the
- * short description the model supplied for it.
+ * The whole point of pi-briefly: one line per tool call, carrying the status,
+ * the tool, the per-call timing and the description the model supplied.
+ *
+ * Typography carries the hierarchy, so no separator glyphs are needed: the tool
+ * name is bold, the timing and a raw heuristic target are italic, and the
+ * description stays plain gray.
  */
 class TerseLine implements Component {
 	private brief = "";
+	private detail?: string;
 	private readonly theme: Theme;
 	private readonly tool: ToolName;
 	private readonly state: RowState;
@@ -86,22 +102,22 @@ class TerseLine implements Component {
 		this.state = state;
 	}
 
-	setBrief(brief: string): void {
-		if (this.brief === brief) return;
-		this.brief = brief;
+	setDescription(description: CallDescription): void {
+		this.brief = description.brief;
+		this.detail = description.detail;
 	}
 
 	/**
-	 * `Elapsed` while the call runs, `Took` once it finished - the same wording
-	 * Pi's native rows use. A replayed session has no start time, so it shows no
-	 * timing at all rather than a bogus `0.0s`.
+	 * `(elapsed …)` while the call runs, `(took …)` once it finished. A replayed
+	 * row has no clock and therefore shows no timing at all, rather than a fake
+	 * `0.0s`.
 	 */
 	private timing(): string | undefined {
 		const { startedAt, endedAt } = this.state;
 		if (startedAt === undefined) return undefined;
-		if (this.state.phase === "pending") return `Elapsed ${formatCallDuration(Date.now() - startedAt)}`;
+		if (this.state.phase === "pending") return `(elapsed ${formatCallDuration(Date.now() - startedAt)})`;
 		if (endedAt === undefined) return undefined;
-		return `Took ${formatCallDuration(endedAt - startedAt)}`;
+		return `(took ${formatCallDuration(endedAt - startedAt)})`;
 	}
 
 	render(width: number): string[] {
@@ -111,11 +127,14 @@ class TerseLine implements Component {
 			: this.state.phase === "error"
 				? theme.fg("error", "✗")
 				: theme.fg("dim", "·");
-		const separator = ` ${theme.fg("dim", "·")} `;
-		let line = `${mark} ${theme.fg("muted", this.tool)}${separator}${theme.fg("dim", this.brief)}`;
+
+		const segments = [mark, theme.bold(theme.fg("muted", this.tool))];
 		const timing = this.timing();
-		if (timing) line += `${separator}${theme.fg("muted", timing)}`;
-		const lines = [truncateToWidth(line, width, "…")];
+		if (timing) segments.push(theme.italic(theme.fg("dim", timing)));
+		segments.push(theme.fg("dim", this.brief));
+		if (this.detail) segments.push(theme.fg("dim", "›"), theme.italic(theme.fg("muted", this.detail)));
+
+		const lines = [truncateToWidth(segments.join(" "), width, "…")];
 		if (this.state.phase === "error" && this.state.errorText) {
 			lines.push(truncateToWidth(`${theme.fg("muted", "│")} ${theme.fg("error", this.state.errorText)}`, width, "…"));
 		}
@@ -224,12 +243,15 @@ export function renderToolCall(
 		const row = rowOf(context, theme, false);
 		const line = state.line ?? new TerseLine(theme, tool, state);
 		state.line = line;
-		line.setBrief(briefFromArgs(tool, (args ?? {}) as Record<string, unknown>, locale));
+		line.setDescription(describeCall(tool, (args ?? {}) as Record<string, unknown>, locale));
 		// Mirror Pi's native rows: the clock starts when execution really starts,
 		// which also keeps replayed sessions from reporting a fake duration.
 		if (context.executionStarted && state.startedAt === undefined) state.startedAt = Date.now();
 		state.invalidate = context.invalidate;
-		if (state.startedAt !== undefined && state.endedAt === undefined) pendingTimingRows.add(state);
+		if (state.startedAt !== undefined && state.endedAt === undefined) {
+			pendingTimingRows.add(state);
+			ensureTicking();
+		}
 		row.setCall(line);
 		row.setStatus(context.isPartial, context.isError);
 		return row;
@@ -270,6 +292,7 @@ export function renderToolResult(
 		if (finished) {
 			state.endedAt = Date.now();
 			pendingTimingRows.delete(state);
+			if (pendingTimingRows.size === 0) stopTicking();
 		}
 		state.row?.setResult(undefined);
 		state.row?.setStatus(false, context.isError);

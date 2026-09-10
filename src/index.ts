@@ -29,17 +29,14 @@ import {
 	notifyUsage,
 	resolveLocale,
 	type TranscriptNavigationPosition,
-	workingMessage,
 } from "./i18n.ts";
-import { renderToolCall, renderToolResult, tickPendingTiming, type RenderContext } from "./native-decorator.ts";
-import { presentationFor, showsTurnDuration } from "./policy.ts";
-import { formatDuration, formatTook } from "./summary.ts";
+import { renderToolCall, renderToolResult, type RenderContext } from "./native-decorator.ts";
+import { presentationFor } from "./policy.ts";
 import { type BrieflyConfig, type Locale, type ToolName, toolNames } from "./types.ts";
 
 type BuiltInTools = ReturnType<typeof createBuiltInTools>;
 type AnyTool = Record<string, any>;
 
-const TURN_DURATION_TYPE = "pi-briefly-turn-duration";
 const NAVIGATION_HINT_WIDGET_KEY = "pi-briefly-navigation-hint";
 const MAC_PROMPT_NAVIGATION_KEY = "ctrl+\\";
 const MAC_BOTTOM_NAVIGATION_KEY = "ctrl+]";
@@ -436,19 +433,9 @@ function registerToolOverride(
 
 export default function piBriefly(pi: ExtensionAPI): void {
 	let currentConfig = loadConfig(process.cwd()).config;
-	let turnTokens = 0;
-	let turnStartedAt = Date.now();
-	let workingStartedAt: number | undefined;
-	let workingTimer: ReturnType<typeof setInterval> | undefined;
 	const initial = getBuiltInTools(process.cwd()) as Record<string, AnyTool>;
 
 	const getConfig = (): BrieflyConfig => currentConfig;
-
-	pi.registerEntryRenderer(TURN_DURATION_TYPE, (entry, _options, theme) => {
-		const data = entry.data as { durationMs?: number; locale?: string; spentTokens?: number };
-		const locale = (data.locale === "zh" ? "zh" : data.locale === "en" ? "en" : resolveLocale(currentConfig)) as "en" | "zh";
-		return new Text(theme.fg("dim", formatTook(data.durationMs ?? 0, locale, data.spentTokens)), 2, 0);
-	});
 
 	const reloadConfig = (cwd: string, notify?: (message: string, level: "info" | "warning" | "error") => void): void => {
 		const loaded = loadConfig(cwd);
@@ -472,29 +459,6 @@ export default function piBriefly(pi: ExtensionAPI): void {
 		refreshTranscript(ctx);
 	};
 
-	const stopWorkingTimer = (ctx: any): void => {
-		if (workingTimer) clearInterval(workingTimer);
-		workingTimer = undefined;
-		workingStartedAt = undefined;
-		if (ctx.hasUI) ctx.ui.setWorkingMessage();
-	};
-	const startWorkingTimer = (ctx: any): void => {
-		stopWorkingTimer(ctx);
-		if (!ctx.hasUI) return;
-		workingStartedAt = Date.now();
-		const update = (): void => {
-			// Keep the `Elapsed` value of running tool rows moving even when a tool
-			// produces no output of its own.
-			tickPendingTiming();
-			if (workingStartedAt === undefined) return;
-			const locale = resolveLocale(currentConfig);
-			const elapsed = formatDuration(Date.now() - workingStartedAt, locale);
-			ctx.ui.setWorkingMessage(workingMessage(locale, elapsed));
-		};
-		update();
-		workingTimer = setInterval(update, 1000);
-	};
-
 	pi.on("session_start", async (_event, ctx) => {
 		reloadConfig(ctx.cwd, ctx.hasUI ? (message, level) => ctx.ui.notify(message, level) : undefined);
 		// Nothing is on screen yet, so only the schemas need to follow the switch
@@ -508,29 +472,6 @@ export default function piBriefly(pi: ExtensionAPI): void {
 		const instruction = briefInstruction(resolveLocale(currentConfig));
 		return { systemPrompt: `${event.systemPrompt}\n\n${instruction}` };
 	});
-	pi.on("agent_start", (_event, ctx) => {
-		turnTokens = 0;
-		turnStartedAt = Date.now();
-		startWorkingTimer(ctx);
-	});
-	pi.on("message_end", (event) => {
-		const message = event.message as any;
-		if (message.role === "assistant" && typeof message.usage?.totalTokens === "number") {
-			turnTokens += message.usage.totalTokens;
-		}
-	});
-	pi.on("agent_end", (_event, ctx) => stopWorkingTimer(ctx));
-	pi.on("agent_settled", (_event, _ctx) => {
-		// Timing is the final transcript entry of the turn, in both switch
-		// positions.
-		if (!showsTurnDuration()) return;
-		pi.appendEntry(TURN_DURATION_TYPE, {
-			durationMs: Date.now() - turnStartedAt,
-			locale: resolveLocale(currentConfig),
-			spentTokens: turnTokens > 0 ? turnTokens : undefined,
-		});
-	});
-	pi.on("session_shutdown", (_event, ctx) => stopWorkingTimer(ctx));
 
 	for (const toolName of toolNames) {
 		registerToolOverride(pi, toolName, initial[toolName], getConfig);
