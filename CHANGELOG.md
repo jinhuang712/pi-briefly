@@ -28,13 +28,18 @@ All notable changes to `pi-briefly` are documented here.
 
 - `src/lifecycle.ts` (settled-state folding and run statistics) and `src/thinking.ts` (thinking condensation), along with their tests.
 
+### Fixed
+
+- Flipping the switch now rebuilds the tool rows that are already on screen. Pi exposes no transcript-refresh hook (`setHiddenThinkingLabel` only touches thinking blocks), so the tool-expansion state is re-applied and restored within the same tick, and the caller's notification replaces its transient status message.
+- A tool row keeps the pending mark (`·`) and streams the description as the model produces it; a partial result arriving mid-execution no longer flips the row to `✓` before the call completes.
+
 ### Verification
 
 - Unit tests: 34 passing, covering the switch policy, the `brief` contract (schema, fallback, stripping), terse/native rendering, configuration validation, and localization.
 - `npm run typecheck` passes with no errors (`tsconfig.json` + `tsc --noEmit`).
 - End-to-end JSON run with terse mode on: the model supplied `brief` (`查看工作区改动状态`) and the `bash` call executed successfully with the argument stripped.
 - Headless tool-registry probe: with the switch off the built-in schemas are unchanged; with it on, `brief` is required and localized; flipping the switch mid-session re-registers the schemas immediately.
-- TUI verification still required for rendering changes: toggle, `Ctrl+O`, streaming/partial rows, and failing rows.
+- TTY verification in a tmux-driven Pi session: one gray line per call (`✓ bash · 查看最近三条提交记录`), `✗` plus one error line for a failing call, `Ctrl+O` falling back to the native row, flipping the switch rebuilding existing rows, and the pending mark flipping to `✓` only once a `sleep 6` call finished.
 
 ## [0.1.1] - 2026-09-01
 
