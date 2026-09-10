@@ -78,6 +78,19 @@ test("terse never wraps onto a second line", () => {
 	assert.ok(visibleWidth(lines[0]) <= 40, `expected <= 40 columns, got ${visibleWidth(lines[0])}`);
 });
 
+test("a streaming result keeps the mark pending until the call completes", () => {
+	const ctx = context({ command: "sleep 6", brief: "等待六秒" }, { isPartial: true });
+	const call = renderToolCall("bash", undefined, ctx.args, theme, ctx, "terse", "zh");
+
+	// Partial results arrive while the tool is still running: the row must not
+	// claim success yet.
+	renderToolResult("bash", undefined, { content: [{ type: "text", text: "waiting" }] }, { isPartial: true } as any, theme, ctx, "terse");
+	assert.deepEqual(call.render(80), ["· bash · 等待六秒"]);
+
+	renderToolResult("bash", undefined, { content: [{ type: "text", text: "done" }] }, { isPartial: false } as any, theme, ctx, "terse");
+	assert.deepEqual(call.render(80), ["✓ bash · 等待六秒"]);
+});
+
 test("native presentation keeps Pi's own renderers and reuses the row", () => {
 	const ctx = context({ path: "src/index.ts" });
 	const callArgs: unknown[] = [];
