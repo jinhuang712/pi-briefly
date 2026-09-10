@@ -1,4 +1,4 @@
-import type { BrieflyConfig, Locale, PresetMode, ResolvedLocale } from "./types.ts";
+import type { Locale, ResolvedLocale } from "./types.ts";
 
 export const DEFAULT_LOCALE: Locale = "auto";
 
@@ -13,55 +13,51 @@ export function detectSystemLocale(): ResolvedLocale {
 	return env.toLowerCase().includes("zh") ? "zh" : "en";
 }
 
-export function resolveLocale(config: BrieflyConfig): ResolvedLocale {
+export function resolveLocale(config: { locale: Locale }): ResolvedLocale {
 	if (config.locale === "en" || config.locale === "zh") return config.locale;
 	return detectSystemLocale();
 }
 
-const modeDescriptions: Record<ResolvedLocale, Record<PresetMode, string>> = {
-	en: {
-		visible: "Full native",
-		compact: "Compact summary",
-		collapse: "Fold after run",
-		hidden: "No UI",
-	},
-	zh: {
-		visible: "完整原生",
-		compact: "紧凑摘要",
-		collapse: "完成后折叠",
-		hidden: "完全隐藏",
-	},
+const terseLabels: Record<ResolvedLocale, { on: string; off: string }> = {
+	en: { on: "terse on", off: "terse off" },
+	zh: { on: "精简模式 开", off: "精简模式 关" },
 };
 
-const selectorTitle: Record<ResolvedLocale, string> = {
-	en: "pi-briefly mode",
-	zh: "pi-briefly 模式",
-};
-
-const collapsedThinkingLabel: Record<ResolvedLocale, string> = {
-	en: "… intermediate steps collapsed",
-	zh: "… 中间步骤已折叠",
-};
-
-const thinkingBriefLabel: Record<ResolvedLocale, string> = {
-	en: "… thinking",
-	zh: "… 思考过程",
-};
-
-export function getModeDescription(locale: ResolvedLocale, mode: PresetMode): string {
-	return modeDescriptions[locale][mode];
+export function terseLabel(locale: ResolvedLocale, terse: boolean): string {
+	return terse ? terseLabels[locale].on : terseLabels[locale].off;
 }
 
-export function getCommonFeatures(locale: ResolvedLocale): string {
-	return locale === "zh"
-		? "通用：\n  执行中... (1 分钟 53 秒)\n  耗时 3 秒 · 消耗 12.3k tokens"
-		: "Common:\n  Working... (1 minute 53 seconds)\n  Took 3 seconds · spent 12.3k tokens";
+export function notifyToggled(locale: ResolvedLocale, terse: boolean): string {
+	if (locale === "zh") {
+		return terse
+			? "pi-briefly：精简模式已开启（工具输出折叠为一行；Ctrl+O 展开，再执行 /briefly 关闭）"
+			: "pi-briefly：精简模式已关闭（恢复原生显示）";
+	}
+	return terse
+		? "pi-briefly: terse mode on (tool output folded into one line; Ctrl+O expands, run /briefly again to turn it off)"
+		: "pi-briefly: terse mode off (native presentation restored)";
 }
 
-export function getTranscriptNavigationFeatures(locale: ResolvedLocale, promptKey: string, bottomKey: string): string {
+export function notifyCurrent(locale: ResolvedLocale, terse: boolean): string {
 	return locale === "zh"
-		? `转录（全屏）：\n  ${promptKey} 跳到 prompt\n  ${bottomKey} 跳到底部`
-		: `Transcript (fullscreen):\n  ${promptKey} jump to prompt\n  ${bottomKey} jump to bottom`;
+		? `当前 pi-briefly：${terseLabel(locale, terse)}`
+		: `pi-briefly is ${terseLabel(locale, terse)}`;
+}
+
+export function notifyReloaded(locale: ResolvedLocale, terse: boolean): string {
+	return locale === "zh"
+		? `pi-briefly 已重载（${terseLabel(locale, terse)}）`
+		: `pi-briefly reloaded (${terseLabel(locale, terse)})`;
+}
+
+export function notifyLocale(locale: ResolvedLocale, next: Locale): string {
+	return locale === "zh" ? `语言已设置为 ${next}` : `Locale set to ${next}`;
+}
+
+export function notifyUsage(locale: ResolvedLocale): string {
+	return locale === "zh"
+		? "用法：/briefly 切换精简模式 · on|off · show · reload · locale <auto|en|zh>"
+		: "Usage: /briefly toggles terse mode · on|off · show · reload · locale <auto|en|zh>";
 }
 
 export type TranscriptNavigationPosition = "bottom" | "middle" | "prompt";
@@ -72,95 +68,15 @@ export function getTranscriptNavigationPill(
 	bottomKey: string,
 	position: TranscriptNavigationPosition = "middle",
 ): string {
-	const actions =
-		position === "bottom"
-			? locale === "zh"
-				? `跳到 prompt（${promptKey}）↑`
-				: `Jump to prompt (${promptKey}) ↑`
-			: position === "prompt"
-				? locale === "zh"
-					? `跳到底部（${bottomKey}）↓`
-					: `Jump to bottom (${bottomKey}) ↓`
-				: locale === "zh"
-					? `跳到 prompt（${promptKey}）↑  ·  跳到底部（${bottomKey}）↓`
-					: `Jump to prompt (${promptKey}) ↑  ·  Jump to bottom (${bottomKey}) ↓`;
-	return actions;
-}
-
-export function getTranscriptNavigationHint(
-	locale: ResolvedLocale,
-	promptKey: string,
-	bottomKey: string,
-	position: TranscriptNavigationPosition = "middle",
-): string {
-	const actions =
-		position === "bottom"
-			? locale === "zh"
-				? `${promptKey} 跳到 prompt`
-				: `${promptKey} jump to prompt`
-			: position === "prompt"
-				? locale === "zh"
-					? `${bottomKey} 跳到底部`
-					: `${bottomKey} jump to bottom`
-				: locale === "zh"
-					? `${promptKey} 跳到 prompt · ${bottomKey} 跳到底部`
-					: `${promptKey} jump to prompt · ${bottomKey} jump to bottom`;
-	return locale === "zh" ? `全屏转录：${actions}` : `Fullscreen transcript: ${actions}`;
-}
-
-export function getSelectorTitle(locale: ResolvedLocale): string {
-	return selectorTitle[locale];
-}
-
-const currentModeSuffix: Record<ResolvedLocale, string> = {
-	en: "(current)",
-	zh: "（当前）",
-};
-
-export function getCurrentModeSuffix(locale: ResolvedLocale): string {
-	return currentModeSuffix[locale];
-}
-
-export function getCollapsedThinkingLabel(locale: ResolvedLocale): string {
-	return collapsedThinkingLabel[locale];
-}
-
-export function getThinkingBriefLabel(locale: ResolvedLocale): string {
-	return thinkingBriefLabel[locale];
-}
-
-const hiddenThinkingStub: Record<ResolvedLocale, string> = {
-	en: "… hidden",
-	zh: "… 已隐藏",
-};
-
-export function getHiddenThinkingStub(locale: ResolvedLocale): string {
-	return hiddenThinkingStub[locale];
-}
-
-const hiddenToolsSummary: Record<ResolvedLocale, (count: number) => string> = {
-	en: (count) => `… ${count} step${count === 1 ? "" : "s"} hidden`,
-	zh: (count) => `… 已隐藏 ${count} 个步骤`,
-};
-
-export function getHiddenToolsSummary(locale: ResolvedLocale, count: number): string {
-	return hiddenToolsSummary[locale](count);
-}
-
-export function notifyReloaded(locale: ResolvedLocale, mode: PresetMode): string {
-	return locale === "zh" ? `pi-briefly 已重载为 ${mode} 模式` : `pi-briefly reloaded in ${mode} mode`;
-}
-
-export function notifyReset(locale: ResolvedLocale): string {
-	return locale === "zh" ? "pi-briefly 已重置为 visible 模式" : "pi-briefly reset to visible mode";
-}
-
-export function notifyModeChanged(locale: ResolvedLocale, mode: PresetMode): string {
-	return locale === "zh" ? `pi-briefly 模式：${mode}` : `pi-briefly mode: ${mode}`;
-}
-
-export function notifyCurrentMode(locale: ResolvedLocale, mode: PresetMode): string {
-	return locale === "zh" ? `当前 pi-briefly 模式：${mode}` : `Current pi-briefly mode: ${mode}`;
+	if (position === "bottom") {
+		return locale === "zh" ? `跳到 prompt（${promptKey}）↑` : `Jump to prompt (${promptKey}) ↑`;
+	}
+	if (position === "prompt") {
+		return locale === "zh" ? `跳到底部（${bottomKey}）↓` : `Jump to bottom (${bottomKey}) ↓`;
+	}
+	return locale === "zh"
+		? `跳到 prompt（${promptKey}）↑  ·  跳到底部（${bottomKey}）↓`
+		: `Jump to prompt (${promptKey}) ↑  ·  Jump to bottom (${bottomKey}) ↓`;
 }
 
 export function workingMessage(locale: ResolvedLocale, elapsed: string): string {

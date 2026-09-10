@@ -1,51 +1,23 @@
-import type {
-	BrieflyConfig,
-	LifecycleView,
-	ResolvedSlotConfig,
-	ToolName,
-	ToolSlot,
-	ToolStyle,
-} from "./types.ts";
-export function presetStyle(mode: BrieflyConfig["mode"], lifecycle: LifecycleView): ToolStyle {
-	switch (mode) {
-		case "visible":
-			return "full";
-		case "compact":
-			return "brief";
-		case "collapse":
-			return lifecycle.isSettled ? "hidden" : "full";
-		case "hidden":
-			return "hidden";
-	}
-}
+import type { BrieflyConfig, Presentation } from "./types.ts";
 
-export function resolveSlot(
-	config: BrieflyConfig,
-	tool: ToolName,
-	slot: ToolSlot,
-	lifecycle: LifecycleView,
-): ResolvedSlotConfig {
-	// Edit diffs and new-file write previews are richer than a one-line
-	// summary. Keep their native renderers in compact mode, then apply a
-	// visual limiter instead of replacing the content.
-	const style = config.mode === "compact" && (tool === "edit" || tool === "write")
-		? "compact"
-		: presetStyle(config.mode, lifecycle);
-	return {
-		tool,
-		slot,
-		style,
-	};
-}
-
-export function isContentStyle(style: ToolStyle): boolean {
-	return style === "full" || style === "partial" || style === "highlight" || style === "compact";
+/**
+ * pi-briefly has exactly one switch: terse on or off.
+ *
+ * - on: every built-in tool row becomes a single gray line
+ * - off: Pi's native presentation, untouched
+ *
+ * Expansion (Ctrl+O) is always an escape hatch back to the native row, so the
+ * terse switch never hides information irreversibly.
+ */
+export function presentationFor(config: BrieflyConfig, expanded = false): Presentation {
+	if (expanded) return "native";
+	return config.terse ? "terse" : "native";
 }
 
 /**
- * Turn timing is a transcript-level status line, not tool presentation.
- * Keep it visible in every preset, including collapse and hidden.
+ * Turn timing is a transcript-level status line, not tool presentation. It is
+ * shown in both switch positions.
  */
-export function showsTurnDuration(_mode: BrieflyConfig["mode"]): boolean {
+export function showsTurnDuration(): boolean {
 	return true;
 }

@@ -1,38 +1,24 @@
 export const toolNames = ["bash", "read", "write", "edit", "find", "grep", "ls"] as const;
 
+/** Tool-argument the model must supply so the terse row has something to show. */
+export const BRIEF_PARAMETER = "brief";
+
 export type ToolName = (typeof toolNames)[number];
-export type ToolSlot = "call" | "result";
-export type PresetMode = "visible" | "compact" | "collapse" | "hidden";
-export type ToolStyle = "full" | "partial" | "highlight" | "compact" | "brief" | "hidden";
-export type ConfigScope = "global" | "project";
-
-export interface SlotConfig {
-	style: ToolStyle;
-	maxLines?: number;
-	maxChars?: number;
-	headLines?: number;
-	tailLines?: number;
-	thresholdLines?: number;
-	showCommand?: boolean;
-	showContent?: boolean;
-	showExpandHint?: boolean;
-}
-
 export type Locale = "en" | "zh" | "auto";
 export type ResolvedLocale = "en" | "zh";
+export type ConfigScope = "global" | "project";
+
+/**
+ * How a tool row is drawn. `terse` is one gray line per tool call; `native` is
+ * Pi's own rendering, untouched.
+ */
+export type Presentation = "native" | "terse";
+
+/** Status of a single tool call, used by the terse row. */
+export type ToolPhase = "pending" | "done" | "error";
 
 export interface BrieflyConfig {
-	version: 1;
-	mode: PresetMode;
+	version: 2;
+	terse: boolean;
 	locale: Locale;
-}
-
-export interface LifecycleView {
-	isActive: boolean;
-	isSettled: boolean;
-}
-
-export interface ResolvedSlotConfig extends SlotConfig {
-	tool: ToolName;
-	slot: ToolSlot;
 }

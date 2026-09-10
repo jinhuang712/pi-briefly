@@ -1,23 +1,13 @@
 /**
- * pi-briefly: native-first, configurable built-in tool presentation.
+ * pi-briefly: one switch for tool presentation.
  *
- * Tool execution stays delegated to Pi's built-in implementations. Renderers
- * decorate those native components according to an immutable preset.
+ * Tool execution stays delegated to Pi's built-in implementations. With terse
+ * mode on, every built-in tool row collapses to a single gray line carrying the
+ * short description the model supplied for that call. With it off, Pi renders
+ * everything natively.
  */
 
-import { DynamicBorder, type ExtensionAPI, type Theme } from "@earendil-works/pi-coding-agent";
-import {
-	Container,
-	getKeybindings,
-	isViewportTUI,
-	SelectList,
-	Spacer,
-	stripTerminalSequences,
-	Text,
-	truncateToWidth,
-	type SelectItem,
-	visibleWidth,
-} from "@earendil-works/pi-tui";
+import { type ExtensionAPI, type Theme } from "@earendil-works/pi-coding-agent";
 import {
 	createBashToolDefinition,
 	createEditToolDefinition,
@@ -26,48 +16,35 @@ import {
 	createLsToolDefinition,
 	createReadToolDefinition,
 	createWriteToolDefinition,
-	keyHint,
 	keyText,
 } from "@earendil-works/pi-coding-agent";
-import { loadConfig, saveConfig, setLocale, setMode } from "./config.ts";
-import { toolBrief } from "./brief.ts";
+import { getKeybindings, isViewportTUI, Text, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import { briefInstruction, prepareBriefArguments, stripBriefParameter, withBriefParameter } from "./brief-parameter.ts";
+import { loadConfig, saveConfig, setLocale, setTerse } from "./config.ts";
 import {
-	getCollapsedThinkingLabel,
-	getCommonFeatures,
-	getCurrentModeSuffix,
-	getHiddenThinkingStub,
-	getHiddenToolsSummary,
-	getThinkingBriefLabel,
-	getModeDescription,
-	getSelectorTitle,
-	getTranscriptNavigationFeatures,
 	getTranscriptNavigationPill,
-	type TranscriptNavigationPosition,
-	notifyCurrentMode,
-	notifyModeChanged,
+	notifyLocale,
 	notifyReloaded,
-	notifyReset,
+	notifyToggled,
+	notifyUsage,
 	resolveLocale,
+	type TranscriptNavigationPosition,
 	workingMessage,
 } from "./i18n.ts";
-import { LifecycleController } from "./lifecycle.ts";
-import { renderCallWithStyle, renderResultWithStyle, type RenderContext } from "./native-decorator.ts";
-import { resolveSlot, showsTurnDuration } from "./policy.ts";
-import { formatCollapseSummary, formatDuration, formatTook } from "./summary.ts";
-import { isAlreadyCondensedThinking, resolveThinkingPresentation, thinkingBrief } from "./thinking.ts";
-import { type BrieflyConfig, type Locale, type PresetMode, toolNames } from "./types.ts";
+import { renderToolCall, renderToolResult, type RenderContext } from "./native-decorator.ts";
+import { presentationFor, showsTurnDuration } from "./policy.ts";
+import { formatDuration, formatTook } from "./summary.ts";
+import { type BrieflyConfig, type Locale, type ToolName, toolNames } from "./types.ts";
 
 type BuiltInTools = ReturnType<typeof createBuiltInTools>;
 type AnyTool = Record<string, any>;
 
-const COLLAPSE_SUMMARY_TYPE = "pi-briefly-collapse-summary";
 const TURN_DURATION_TYPE = "pi-briefly-turn-duration";
-const HIDDEN_SUMMARY_TYPE = "pi-briefly-hidden-summary";
 const NAVIGATION_HINT_WIDGET_KEY = "pi-briefly-navigation-hint";
 const MAC_PROMPT_NAVIGATION_KEY = "ctrl+\\";
 const MAC_BOTTOM_NAVIGATION_KEY = "ctrl+]";
 const OSC133_PROMPT_START = /^\x1b\]133;A(?:\x07|\x1b\\)/;
-const OSC133_PROMPT_END = /\x1b\]133;B(?:\x07|\x1b\\)/;
+const OSC133_PROMPT_END = /^\x1b\]133;B(?:\x07|\x1b\\)/;
 
 function findScrollViewBox(box: any, scrollView: any): any {
 	if (!box) return undefined;
@@ -313,30 +290,8 @@ function getBuiltInTools(cwd: string): BuiltInTools {
 	return tools;
 }
 
-function isFinalAssistantMessage(message: any): boolean {
-	if (message?.role !== "assistant") return false;
-	return !Array.isArray(message.content) || !message.content.some((part: any) => part?.type === "toolCall");
-}
-
-function collapseSummary(ctx: any, lifecycle: LifecycleController, turnTokens: number, config: BrieflyConfig): string {
-	const stats = lifecycle.statistics();
-	return formatCollapseSummary(
-		stats,
-		Date.now() - stats.startedAt,
-		ctx.getContextUsage?.(),
-		turnTokens,
-		resolveLocale(config),
-	);
-}
-
 function renderContext(context: any): RenderContext {
 	return context as RenderContext;
-}
-
-function useNativeExpandedPresentation(mode: PresetMode, toolName: ToolName, expanded: boolean): boolean {
-	if (!expanded) return false;
-	if (mode === "collapse" || mode === "hidden") return true;
-	return mode === "compact" && (toolName === "edit" || toolName === "write");
 }
 
 function configureNavigationKeybindings(): void {
@@ -377,8 +332,8 @@ function setStickyPromptPreview(ctx: any): void {
 	if (!ctx.hasUI || ctx.mode !== "tui") return;
 
 	// This is a small fullscreen-only prototype. Calling done immediately in
-	// regular TUI avoids leaving a persistent overlay that would block mode
-	// switching, while fullscreen gets a passive, screen-relative preview.
+	// regular TUI avoids leaving a persistent overlay that would block
+	// interactions, while fullscreen gets a passive, screen-relative preview.
 	void ctx.ui.custom(
 		(tui: any, theme: Theme, _keybindings: any, done: () => void) => {
 			if (!isViewportTUI(tui)) {
@@ -406,76 +361,14 @@ function setStickyPromptPreview(ctx: any): void {
 	);
 }
 
-function modeSelectorItems(ordered: PresetMode[], currentMode: PresetMode, locale: "en" | "zh"): SelectItem[] {
-	const suffix = getCurrentModeSuffix(locale);
-	return ordered.map((mode) => ({
-		value: mode,
-		label: mode === currentMode ? `✓ ${mode}` : mode,
-		description: mode === currentMode ? `${getModeDescription(locale, mode)} ${suffix}` : getModeDescription(locale, mode),
-	}));
-}
-
-async function selectMode(ctx: any, ordered: PresetMode[], currentMode: PresetMode, locale: "en" | "zh"): Promise<PresetMode | undefined> {
-	const items = modeSelectorItems(ordered, currentMode, locale);
-	const title = `${getSelectorTitle(locale)} — ${currentMode}`;
-	if (ctx.mode !== "tui") {
-		const options = items.map((item) => `${item.label} — ${item.description}`);
-		const selected = await ctx.ui.select(title, options);
-		return items.find((item) => `${item.label} — ${item.description}` === selected)?.value as PresetMode | undefined;
-	}
-
-	return ctx.ui.custom<PresetMode | undefined>((tui: any, theme: Theme, _keybindings: any, done: (value: PresetMode | undefined) => void) => {
-		const container = new Container();
-		const border = new DynamicBorder((text: string) => theme.fg("accent", text));
-		const bottomBorder = new DynamicBorder((text: string) => theme.fg("accent", text));
-		container.addChild(border);
-		container.addChild(new Spacer(1));
-		container.addChild(new Text(theme.fg("accent", theme.bold(title)), 1, 0));
-		container.addChild(new Spacer(1));
-		const selectList = new SelectList(items, items.length, {
-			selectedPrefix: (text) => theme.fg("accent", text),
-			selectedText: (text) => theme.fg("accent", text),
-			description: (text) => theme.fg("dim", text),
-			scrollInfo: (text) => theme.fg("dim", text),
-			noMatch: (text) => theme.fg("warning", text),
-		});
-		selectList.onSelect = (item) => done(item.value as PresetMode);
-		selectList.onCancel = () => done(undefined);
-		container.addChild(selectList);
-		container.addChild(new Spacer(1));
-		container.addChild(new Text(theme.fg("dim", getCommonFeatures(locale)), 1, 0));
-		container.addChild(new Spacer(1));
-		container.addChild(
-			new Text(
-				theme.fg(
-					"dim",
-					getTranscriptNavigationFeatures(
-						locale,
-						keyText("tui.altScreen.previousPrompt"),
-						keyText("tui.altScreen.bottom"),
-					),
-				),
-				1,
-				0,
-			),
-		);
-		container.addChild(new Spacer(1));
-		container.addChild(new Text(theme.fg("dim", `${keyHint("tui.select.confirm", "select")}  ${keyHint("tui.select.cancel", "cancel")}`), 1, 0));
-		container.addChild(new Spacer(1));
-		container.addChild(bottomBorder);
-		return {
-			render(width: number): string[] {
-				return container.render(width);
-			},
-			invalidate(): void {
-				container.invalidate();
-			},
-			handleInput(data: string): void {
-				selectList.handleInput(data);
-				tui.requestRender();
-			},
-		};
-	});
+/**
+ * Pi rebuilds assistant message components when the hidden-thinking label is
+ * set; that is the available hook to make existing tool rows pick up a switch
+ * flip without restarting the session.
+ */
+function refreshTranscript(ctx: any): void {
+	if (!ctx?.hasUI) return;
+	ctx.ui.setHiddenThinkingLabel();
 }
 
 function registerToolOverride(
@@ -483,67 +376,49 @@ function registerToolOverride(
 	toolName: ToolName,
 	initialTool: AnyTool,
 	getConfig: () => BrieflyConfig,
-	lifecycle: LifecycleController,
-	onToolsExpanded: (expanded: boolean) => void,
 ): void {
+	const locale = (): "en" | "zh" => resolveLocale(getConfig());
 	pi.registerTool({
 		...initialTool,
 		name: toolName,
 		label: toolName,
 		renderShell: "self",
+		// The schema follows the switch: `brief` exists only while terse mode is
+		// on, so the model is never asked for a description nobody displays.
+		parameters: getConfig().terse ? withBriefParameter(initialTool.parameters, locale()) : initialTool.parameters,
+		prepareArguments(args: unknown) {
+			// Keep the native shim (for example edit's legacy top-level
+			// oldText/newText) and always hand validation a clean object.
+			const native = typeof initialTool.prepareArguments === "function" ? initialTool.prepareArguments(args) : args;
+			if (!getConfig().terse) return stripBriefParameter(native);
+			return prepareBriefArguments(toolName, native, locale());
+		},
 		async execute(toolCallId: string, params: unknown, signal: AbortSignal | undefined, onUpdate: unknown, ctx: any) {
 			const tools = getBuiltInTools(ctx.cwd) as Record<string, AnyTool>;
-			return tools[toolName].execute(toolCallId, params, signal, onUpdate, ctx);
+			return tools[toolName].execute(toolCallId, stripBriefParameter(params), signal, onUpdate, ctx);
 		},
 		renderCall(args: unknown, theme: Theme, context: any) {
 			const currentContext = renderContext(context);
-			onToolsExpanded(currentContext.expanded);
-			lifecycle.ensure(currentContext.toolCallId, toolName, currentContext.args);
-			lifecycle.registerInvalidation(currentContext.toolCallId, currentContext.invalidate);
-			const mode = getConfig().mode;
-			const resolvedPolicy = resolveSlot(getConfig(), toolName, "call", lifecycle.view(currentContext.toolCallId));
-			const policy = useNativeExpandedPresentation(mode, toolName, currentContext.expanded)
-				? { ...resolvedPolicy, style: "full" as const }
-				: resolvedPolicy;
-			const renderArgs = toolName === "write" && policy.showContent === false
-				? { ...((args ?? {}) as Record<string, unknown>), content: "" }
-				: toolName === "bash" && policy.showCommand === false
-					? { ...((args ?? {}) as Record<string, unknown>), command: "..." }
-					: args;
-			const callLocale = resolveLocale(getConfig());
-			return renderCallWithStyle(
+			return renderToolCall(
+				toolName,
 				initialTool.renderCall,
-				renderArgs,
+				args,
 				theme,
 				currentContext,
-				policy,
-				toolBrief(toolName, (args ?? {}) as Record<string, unknown>, callLocale),
-				keyHint("app.tools.expand", "to expand"),
-				undefined,
-				callLocale,
+				presentationFor(getConfig(), currentContext.expanded),
+				locale(),
 			);
 		},
 		renderResult(result: any, options: any, theme: Theme, context: any) {
 			const currentContext = renderContext(context);
-			onToolsExpanded(currentContext.expanded);
-			lifecycle.ensure(currentContext.toolCallId, toolName, currentContext.args);
-			lifecycle.registerInvalidation(currentContext.toolCallId, currentContext.invalidate);
-			const mode = getConfig().mode;
-			const resolvedPolicy = resolveSlot(getConfig(), toolName, "result", lifecycle.view(currentContext.toolCallId));
-			const policy = useNativeExpandedPresentation(mode, toolName, currentContext.expanded)
-				? { ...resolvedPolicy, style: "full" as const }
-				: resolvedPolicy;
-			const resultLocale = resolveLocale(getConfig());
-			return renderResultWithStyle(
+			return renderToolResult(
+				toolName,
 				initialTool.renderResult,
 				result,
 				options,
 				theme,
 				currentContext,
-				policy,
-				toolBrief(toolName, (currentContext.args ?? {}) as Record<string, unknown>, resultLocale),
-				keyHint("app.tools.expand", "to expand"),
-				resultLocale,
+				presentationFor(getConfig(), currentContext.expanded),
 			);
 		},
 	});
@@ -551,70 +426,38 @@ function registerToolOverride(
 
 export default function piBriefly(pi: ExtensionAPI): void {
 	let currentConfig = loadConfig(process.cwd()).config;
-	const lifecycle = new LifecycleController();
 	let turnTokens = 0;
-	let collapseSummaryAppended = false;
+	let turnStartedAt = Date.now();
 	let workingStartedAt: number | undefined;
 	let workingTimer: ReturnType<typeof setInterval> | undefined;
 	const initial = getBuiltInTools(process.cwd()) as Record<string, AnyTool>;
-	let toolsExpanded = false;
-	let refreshAssistantComponents: (() => void) | undefined;
 
 	const getConfig = (): BrieflyConfig => currentConfig;
-	pi.registerEntryRenderer(COLLAPSE_SUMMARY_TYPE, (entry, { expanded }, theme) => {
-		const data = entry.data as { summary?: string };
-		const summary = data.summary ?? "collapse summary";
-		const hint = keyHint("app.tools.expand", expanded ? "to collapse" : "to expand");
-		return new Text(
-			`${theme.fg("success", "✓")} ${theme.fg("muted", summary)} ${theme.fg("dim", `(${hint})`)}`,
-			0,
-			0,
-		);
-	});
+
 	pi.registerEntryRenderer(TURN_DURATION_TYPE, (entry, _options, theme) => {
 		const data = entry.data as { durationMs?: number; locale?: string; spentTokens?: number };
 		const locale = (data.locale === "zh" ? "zh" : data.locale === "en" ? "en" : resolveLocale(currentConfig)) as "en" | "zh";
 		return new Text(theme.fg("dim", formatTook(data.durationMs ?? 0, locale, data.spentTokens)), 2, 0);
 	});
-	pi.registerEntryRenderer(HIDDEN_SUMMARY_TYPE, (entry, { expanded }, theme) => {
-		const data = entry.data as { count?: number; locale?: string };
-		const locale = (data.locale === "zh" ? "zh" : data.locale === "en" ? "en" : resolveLocale(currentConfig)) as "en" | "zh";
-		const text = getHiddenToolsSummary(locale, data.count ?? 0);
-		const hint = keyHint("app.tools.expand", expanded ? "to collapse" : "to expand");
-		return new Text(`${theme.fg("dim", text)} ${theme.fg("dim", `(${hint})`)}`, 0, 0);
-	});
-	pi.registerMarkdownTransformer((markdown, { messageType, isStreaming }) => {
-		if (messageType !== "assistant-thinking") return markdown;
-		const presentation = resolveThinkingPresentation(currentConfig.mode, {
-			streaming: isStreaming,
-			settled: lifecycle.isSettled(),
-			expanded: toolsExpanded,
-		});
-		if (presentation === "native") return markdown;
-		if (presentation === "suppressed") return "";
-		const locale = resolveLocale(currentConfig);
-		if (presentation === "collapsed") return getCollapsedThinkingLabel(locale);
-		if (presentation === "hiddenStub") return getHiddenThinkingStub(locale);
-		if (isAlreadyCondensedThinking(markdown)) return markdown;
-		return thinkingBrief(markdown, getThinkingBriefLabel(locale));
-	});
+
 	const reloadConfig = (cwd: string, notify?: (message: string, level: "info" | "warning" | "error") => void): void => {
 		const loaded = loadConfig(cwd);
 		currentConfig = loaded.config;
-		lifecycle.refresh();
 		for (const warning of loaded.warnings) notify?.(warning, "warning");
 	};
-	const refreshAssistantMessages = (ctx: any): void => {
-		if (!ctx.hasUI) return;
-		toolsExpanded = ctx.ui.getToolsExpanded();
-		refreshAssistantComponents = () => ctx.ui.setHiddenThinkingLabel();
-		ctx.ui.setHiddenThinkingLabel();
+
+	/**
+	 * Re-registering the built-in overrides is how the switch takes effect:
+	 * `pi.registerTool()` refreshes the tool registry immediately, so both the
+	 * schema and the renderers follow the new value.
+	 */
+	const applyPresentation = (ctx?: any): void => {
+		for (const toolName of toolNames) {
+			registerToolOverride(pi, toolName, initial[toolName], getConfig);
+		}
+		refreshTranscript(ctx);
 	};
-	const onToolsExpanded = (expanded: boolean): void => {
-		if (toolsExpanded === expanded) return;
-		toolsExpanded = expanded;
-		if (lifecycle.isSettled()) refreshAssistantComponents?.();
-	};
+
 	const stopWorkingTimer = (ctx: any): void => {
 		if (workingTimer) clearInterval(workingTimer);
 		workingTimer = undefined;
@@ -637,83 +480,47 @@ export default function piBriefly(pi: ExtensionAPI): void {
 
 	pi.on("session_start", async (_event, ctx) => {
 		reloadConfig(ctx.cwd, ctx.hasUI ? (message, level) => ctx.ui.notify(message, level) : undefined);
+		applyPresentation(ctx);
 		setNavigationHint(ctx, currentConfig);
 		setStickyPromptPreview(ctx);
 	});
+	pi.on("before_agent_start", async (event) => {
+		if (!currentConfig.terse) return;
+		const instruction = briefInstruction(resolveLocale(currentConfig));
+		return { systemPrompt: `${event.systemPrompt}\n\n${instruction}` };
+	});
 	pi.on("agent_start", (_event, ctx) => {
 		turnTokens = 0;
-		collapseSummaryAppended = false;
-		lifecycle.beginAgent();
+		turnStartedAt = Date.now();
 		startWorkingTimer(ctx);
 	});
-	pi.on("message_end", (event, ctx) => {
+	pi.on("message_end", (event) => {
 		const message = event.message as any;
 		if (message.role === "assistant" && typeof message.usage?.totalTokens === "number") {
 			turnTokens += message.usage.totalTokens;
 		}
-
-		// message_end is dispatched before Pi persists the assistant message. Add
-		// the collapse summary here so it becomes the parent of the final answer,
-		// rather than a trailing row below it. Tool execution events include custom
-		// tools too, so the summary still appears for runs such as mcpScript.
-		if (
-			currentConfig.mode === "collapse" &&
-			!collapseSummaryAppended &&
-			isFinalAssistantMessage(message) &&
-			lifecycle.statistics().toolCalls > 0
-		) {
-			pi.appendEntry(COLLAPSE_SUMMARY_TYPE, { summary: collapseSummary(ctx, lifecycle, turnTokens, currentConfig) });
-			collapseSummaryAppended = true;
-		}
 	});
-	pi.on("tool_execution_start", (event) => lifecycle.start(event.toolCallId, event.toolName, event.args));
-	pi.on("tool_execution_end", (event) => lifecycle.complete(event.toolCallId, event.isError));
 	pi.on("agent_end", (_event, ctx) => stopWorkingTimer(ctx));
-	pi.on("agent_settled", (_event, ctx) => {
-		stopWorkingTimer(ctx);
-		const stats = lifecycle.statistics();
-		const turnDurationMs = Date.now() - stats.startedAt;
-		const summary = collapseSummary(ctx, lifecycle, turnTokens, currentConfig);
-		lifecycle.settleAgent(summary);
-		if (currentConfig.mode !== "visible") {
-			// Rebuild assistant message components so settled thinking blocks run
-			// through the condensing transformer in every non-visible mode, along
-			// with tool rows in collapse mode.
-			refreshAssistantMessages(ctx);
-		}
-		// A run can finish without a final assistant message (for example after
-		// an abort). Keep the summary useful in that case, while preserving the
-		// normal before-response placement above.
-		if (currentConfig.mode === "collapse" && stats.toolCalls > 0 && !collapseSummaryAppended) {
-			pi.appendEntry(COLLAPSE_SUMMARY_TYPE, { summary });
-			collapseSummaryAppended = true;
-		}
-		if (currentConfig.mode === "hidden" && stats.toolCalls > 0) {
-			pi.appendEntry(HIDDEN_SUMMARY_TYPE, { count: stats.toolCalls, locale: resolveLocale(currentConfig) });
-		}
-		// Timing is always the final transcript entry, regardless of presentation
-		// mode, so it remains at the bottom of the turn.
-		if (showsTurnDuration(currentConfig.mode)) {
-			pi.appendEntry(TURN_DURATION_TYPE, {
-				durationMs: turnDurationMs,
-				locale: resolveLocale(currentConfig),
-				spentTokens: turnTokens > 0 ? turnTokens : undefined,
-			});
-		}
+	pi.on("agent_settled", (_event, _ctx) => {
+		// Timing is the final transcript entry of the turn, in both switch
+		// positions.
+		if (!showsTurnDuration()) return;
+		pi.appendEntry(TURN_DURATION_TYPE, {
+			durationMs: Date.now() - turnStartedAt,
+			locale: resolveLocale(currentConfig),
+			spentTokens: turnTokens > 0 ? turnTokens : undefined,
+		});
 	});
-	pi.on("session_shutdown", (_event, ctx) => {
-		stopWorkingTimer(ctx);
-		lifecycle.clear();
-	});
+	pi.on("session_shutdown", (_event, ctx) => stopWorkingTimer(ctx));
 
 	for (const toolName of toolNames) {
-		registerToolOverride(pi, toolName, initial[toolName], getConfig, lifecycle, onToolsExpanded);
+		registerToolOverride(pi, toolName, initial[toolName], getConfig);
 	}
 
 	pi.registerCommand("briefly", {
-		description: "Choose or inspect pi-briefly presentation mode",
+		description: "Toggle pi-briefly terse mode",
 		handler: async (args, ctx) => {
-			const command = args.trim();
+			const command = args.trim().toLowerCase();
 			const locale = resolveLocale(currentConfig);
 			if (command === "show") {
 				ctx.ui.notify(JSON.stringify(currentConfig, null, 2), "info");
@@ -721,58 +528,31 @@ export default function piBriefly(pi: ExtensionAPI): void {
 			}
 			if (command === "reload") {
 				reloadConfig(ctx.cwd, (message, level) => ctx.ui.notify(message, level));
+				applyPresentation(ctx);
 				setNavigationHint(ctx, currentConfig);
-				refreshAssistantMessages(ctx);
-				ctx.ui.notify(notifyReloaded(locale, currentConfig.mode), "info");
-				return;
-			}
-			if (command === "reset") {
-				currentConfig = setMode(currentConfig, "visible");
-				lifecycle.refresh();
-				setNavigationHint(ctx, currentConfig);
-				refreshAssistantMessages(ctx);
-				saveConfig(ctx.cwd, "project", currentConfig);
-				ctx.ui.notify(notifyReset(locale), "info");
-				return;
-			}
-			if (command && ["visible", "compact", "collapse", "hidden"].includes(command)) {
-				currentConfig = setMode(currentConfig, command as PresetMode);
-				lifecycle.refresh();
-				setNavigationHint(ctx, currentConfig);
-				refreshAssistantMessages(ctx);
-				saveConfig(ctx.cwd, "project", currentConfig);
-				ctx.ui.notify(notifyModeChanged(locale, currentConfig.mode), "info");
+				ctx.ui.notify(notifyReloaded(locale, currentConfig.terse), "info");
 				return;
 			}
 			if (command.startsWith("locale ")) {
 				const next = command.slice(7).trim() as Locale;
 				if (next === "en" || next === "zh" || next === "auto") {
 					currentConfig = setLocale(currentConfig, next);
-					lifecycle.refresh();
-					setNavigationHint(ctx, currentConfig);
-					refreshAssistantMessages(ctx);
 					saveConfig(ctx.cwd, "project", currentConfig);
-					ctx.ui.notify(locale === "zh" ? `语言已切换为 ${next}` : `Locale set to ${next}`, "info");
+					applyPresentation(ctx);
+					setNavigationHint(ctx, currentConfig);
+					ctx.ui.notify(notifyLocale(locale, next), "info");
 					return;
 				}
 			}
-			if (!ctx.hasUI) {
-				ctx.ui.notify(notifyCurrentMode(locale, currentConfig.mode), "info");
+			const next = command === "on" ? true : command === "off" ? false : command === "" ? !currentConfig.terse : undefined;
+			if (next === undefined) {
+				ctx.ui.notify(notifyUsage(locale), "warning");
 				return;
 			}
-			const modes: PresetMode[] = ["visible", "compact", "collapse", "hidden"];
-			// The active mode is listed first, marked, and named in the title so the
-			// user can always tell which mode is selected before switching.
-			const currentMode = currentConfig.mode;
-			const ordered = [currentMode, ...modes.filter((mode) => mode !== currentMode)];
-			const selected = await selectMode(ctx, ordered, currentMode, locale);
-			if (!selected || !modes.includes(selected)) return;
-			currentConfig = setMode(currentConfig, selected);
-			lifecycle.refresh();
-			setNavigationHint(ctx, currentConfig);
-			refreshAssistantMessages(ctx);
+			currentConfig = setTerse(currentConfig, next);
 			saveConfig(ctx.cwd, "project", currentConfig);
-			ctx.ui.notify(notifyModeChanged(resolveLocale(currentConfig), currentConfig.mode), "info");
+			applyPresentation(ctx);
+			ctx.ui.notify(notifyToggled(locale, next), "info");
 		},
 	});
 }
