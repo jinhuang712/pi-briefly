@@ -199,12 +199,14 @@ class StickyPromptPreview extends Text {
 
 	override render(width: number): string[] {
 		if (!isViewportTUI(this.tui)) return [];
-		if (!this.tui?.currentLayout && !this.requestedLayoutRefresh) {
+		// Pi exposes the viewport layout without typing it, so read it defensively.
+		const tui: any = this.tui;
+		if (!tui.currentLayout && !this.requestedLayoutRefresh) {
 			this.requestedLayoutRefresh = true;
-			queueMicrotask(() => this.tui?.requestRender?.());
+			queueMicrotask(() => tui.requestRender?.());
 		}
 
-		const prompt = getStickyPromptText(this.tui, this.sessionManager);
+		const prompt = getStickyPromptText(tui, this.sessionManager);
 		if (!prompt) return [];
 
 		const prefix = truncateToWidth("prompt:", Math.max(1, width - 2), "");
@@ -247,11 +249,12 @@ class DynamicNavigationHint extends Text {
 		// regular TUI has no application-owned scroll region, so rendering the
 		// pill there would advertise shortcuts that cannot take effect.
 		if (!isViewportTUI(this.tui)) return [];
-		if (!this.tui?.currentLayout && !this.requestedLayoutRefresh) {
+		const tui: any = this.tui;
+		if (!tui.currentLayout && !this.requestedLayoutRefresh) {
 			this.requestedLayoutRefresh = true;
-			queueMicrotask(() => this.tui?.requestRender?.());
+			queueMicrotask(() => tui.requestRender?.());
 		}
-		const label = getTranscriptNavigationPill(this.locale, this.promptKey, this.bottomKey, getNavigationPosition(this.tui));
+		const label = getTranscriptNavigationPill(this.locale, this.promptKey, this.bottomKey, getNavigationPosition(tui));
 		const pill = this.style(` ${label} `);
 		const leftPadding = Math.max(0, Math.floor((width - visibleWidth(pill)) / 2));
 		const text = `${" ".repeat(leftPadding)}${pill}`;
@@ -382,6 +385,9 @@ function registerToolOverride(
 		...initialTool,
 		name: toolName,
 		label: toolName,
+		// The spread cannot prove ToolDefinition's required fields, so prompt
+		// metadata is passed through explicitly.
+		description: initialTool.description ?? toolName,
 		renderShell: "self",
 		// The schema follows the switch: `brief` exists only while terse mode is
 		// on, so the model is never asked for a description nobody displays.

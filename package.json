@@ -4,7 +4,13 @@
   "description": "Native-first Pi tool presentation modes with compact and collapse views.",
   "private": false,
   "type": "module",
-  "keywords": ["pi-package", "pi-extension", "pi", "tui", "tool-renderer"],
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "pi",
+    "tui",
+    "tool-renderer"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/jinhuang712/pi-briefly.git"
@@ -24,10 +30,17 @@
     "@earendil-works/pi-tui": "*"
   },
   "pi": {
-    "extensions": ["./src/index.ts"]
+    "extensions": [
+      "./src/index.ts"
+    ]
   },
   "scripts": {
-    "test": "node --test --experimental-strip-types test/*.test.ts"
+    "test": "node --test --experimental-strip-types test/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.19",
+    "typescript": "^7.0.2"
   },
   "license": "MIT"
 }
