@@ -34,11 +34,12 @@ test("tolerates schemas without properties or required", () => {
 	assert.deepEqual((withBriefParameter(undefined) as any).required, [BRIEF_PARAMETER]);
 });
 
-test("keeps the model brief and falls back when it is missing", () => {
+test("keeps the model brief and satisfies the required field when it is missing", () => {
 	assert.deepEqual(prepareBriefArguments("read", { path: "a.ts", brief: " 查看实现 " }), { path: "a.ts", brief: " 查看实现 " });
-	assert.deepEqual(prepareBriefArguments("read", { path: "a.ts" }), { path: "a.ts", brief: "reading › a.ts" });
-	assert.deepEqual(prepareBriefArguments("read", { path: "a.ts", brief: "" }), { path: "a.ts", brief: "reading › a.ts" });
-	assert.deepEqual(prepareBriefArguments("ls", undefined), { brief: "listing › ." });
+	// An empty string satisfies the required schema; the row derives the text.
+	assert.deepEqual(prepareBriefArguments("read", { path: "a.ts" }), { path: "a.ts", brief: "" });
+	assert.deepEqual(prepareBriefArguments("read", { path: "a.ts", brief: "" }), { path: "a.ts", brief: "" });
+	assert.deepEqual(prepareBriefArguments("ls", undefined), { brief: "" });
 });
 
 test("strips the display-only parameter before native execution", () => {

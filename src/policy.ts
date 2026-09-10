@@ -13,11 +13,3 @@ export function presentationFor(config: BrieflyConfig, expanded = false): Presen
 	if (expanded) return "native";
 	return config.terse ? "terse" : "native";
 }
-
-/**
- * Turn timing is a transcript-level status line, not tool presentation. It is
- * shown in both switch positions.
- */
-export function showsTurnDuration(): boolean {
-	return true;
-}

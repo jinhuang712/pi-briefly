@@ -132,23 +132,39 @@ export function callParts(tool: ToolName, args: Record<string, unknown>, locale:
 	}
 }
 
-export function fallbackBrief(tool: ToolName, args: Record<string, unknown>, locale: ResolvedLocale = "en"): string {
-	const parts = callParts(tool, args, locale);
-	// The purpose and the concrete target are different kinds of information:
-	// keep them visually apart so a raw script is never mistaken for prose.
-	return clip([parts.purpose, parts.detail].filter(Boolean).join(" › "), BRIEF_MAX_CHARS);
+/**
+ * The one-line description of a tool call: either what the model wrote, or - when
+ * it supplied nothing - the heuristic purpose plus the concrete target, which are
+ * different kinds of information and must stay distinguishable on the row.
+ */
+export interface CallDescription {
+	brief: string;
+	detail?: string;
 }
 
 /**
- * The single source of truth for the terse row text: the model's `brief` when
- * present, otherwise the heuristic fallback so the row is never empty.
+ * The single source of truth for the terse row text.
  */
-export function briefFromArgs(tool: ToolName, args: Record<string, unknown> | undefined, locale: ResolvedLocale = "en"): string {
+export function describeCall(
+	tool: ToolName,
+	args: Record<string, unknown> | undefined,
+	locale: ResolvedLocale = "en",
+): CallDescription {
 	const input = args ?? {};
 	const raw = typeof input[BRIEF_PARAMETER] === "string" ? (input[BRIEF_PARAMETER] as string) : "";
 	const brief = raw.replace(/\s+/g, " ").trim();
-	if (brief) return clip(brief, BRIEF_MAX_CHARS);
-	return fallbackBrief(tool, input, locale);
+	if (brief) return { brief: clip(brief, BRIEF_MAX_CHARS) };
+	const parts = callParts(tool, input, locale);
+	return {
+		brief: clip(parts.purpose, BRIEF_MAX_CHARS),
+		detail: parts.detail ? clip(parts.detail, 60) : undefined,
+	};
+}
+
+/** Text form of {@link describeCall}, used by tooling and tests. */
+export function briefFromArgs(tool: ToolName, args: Record<string, unknown> | undefined, locale: ResolvedLocale = "en"): string {
+	const { brief, detail } = describeCall(tool, args, locale);
+	return detail ? `${brief} › ${detail}` : brief;
 }
 
 function resultText(result: ToolResultLike | undefined): string {

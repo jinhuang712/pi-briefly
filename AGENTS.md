@@ -25,12 +25,17 @@ Documentation and behavior coverage:
    - Terse rows must not leave an empty tool box or spacer; flipping the switch must re-render existing rows.
 3. **The `brief` contract**
    - The terse line shows the description the model wrote, so `brief` is a required schema argument while terse mode is on and is stripped before the native tool runs. It is display-only and must never change execution or result shapes.
-   - `prepareArguments` must always hand validation a complete argument object: a model that omits `brief` must neither fail the call nor produce an empty row.
+   - `prepareArguments` must always hand validation a complete argument object: a model that omits `brief` must neither fail the call nor produce an empty row. A missing description is satisfied with an empty string; the row derives its own text from the call arguments (`describeCall`), it is never invented as model text.
    - With terse mode off, register the original schemas: never ask the model for a description nobody displays.
-4. **Configuration must be validated**
+   - A derived description keeps the purpose and the concrete target as separate pieces (`{ brief, detail }`), rendered as `purpose › raw target` so a script is never mistaken for prose.
+4. **The row format**
+   - One line: colored status mark, bold tool name, italic timing, plain gray description, and for derived descriptions an italic, brighter raw target after `›`. No separator glyphs beyond `›`; typography carries the hierarchy.
+   - The per-call clock starts from `context.executionStarted` (so replayed rows show no fake `0.0s`) and only a completed result may flip the mark to `✓`/`✗`.
+   - A failed call adds exactly one red error line.
+5. **Configuration must be validated**
    - Invalid configuration falls back safely and reports a concise warning in TUI mode.
    - Never let configuration errors break tool execution.
-5. **Small-step development**
+6. **Small-step development**
    - Make one coherent change at a time.
    - Run the focused test after each step, then run the full smoke suite before moving on.
    - Keep the README and tests updated when behavior changes.
@@ -60,12 +65,15 @@ When a change affects interactive rendering, also run Pi in a TTY and manually v
 
 - `/briefly` toggles between one gray line per call and native rendering
 - `Ctrl+O` expansion restores the native row
-- streaming/partial calls show the fallback description before `brief` arrives
+- streaming/partial calls show the derived description before `brief` arrives
+- a running call shows `(elapsed …)` in front of the description and keeps counting, then settles to `(took …)`
 - a failing tool shows `✗` plus one error line
 - flipping the switch leaves no empty tool row
+- the turn ends with exactly one `Took` line, the one `pi-elapsed` writes
 
 ## Scope boundaries
 
+- **Turn timing belongs to `pi-elapsed`.** Never add a turn duration line, a live working indicator, or token/cost usage here: that companion extension owns them, and duplicating them makes a turn render two `Took` lines. Do not call `ctx.ui.setWorkingMessage()`. Measuring the single tool call a row describes is the only timing this extension owns.
 - Do not modify Pi source under `~/dev/projects/pi/pi` as part of this extension unless a separate task explicitly requests an upstream API change.
 - Do not reimplement file or shell execution.
 - Do not expose full shell commands by default in briefs when a concise purpose can be generated.

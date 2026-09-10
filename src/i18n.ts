@@ -78,7 +78,3 @@ export function getTranscriptNavigationPill(
 		? `跳到 prompt（${promptKey}）↑  ·  跳到底部（${bottomKey}）↓`
 		: `Jump to prompt (${promptKey}) ↑  ·  Jump to bottom (${bottomKey}) ↓`;
 }
-
-export function workingMessage(locale: ResolvedLocale, elapsed: string): string {
-	return locale === "zh" ? `执行中... (${elapsed})` : `Working... (${elapsed})`;
-}
