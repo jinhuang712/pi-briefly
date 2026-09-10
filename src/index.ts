@@ -365,13 +365,17 @@ function setStickyPromptPreview(ctx: any): void {
 }
 
 /**
- * Pi rebuilds assistant message components when the hidden-thinking label is
- * set; that is the available hook to make existing tool rows pick up a switch
- * flip without restarting the session.
+ * Pi exposes no transcript-refresh hook, and `setHiddenThinkingLabel` only
+ * touches thinking blocks. Re-applying the tool-expansion state is the one path
+ * that rebuilds the assistant rows containing tool calls, so the current value
+ * is restored immediately: the rows are reconstructed within the same tick, and
+ * the caller's notification replaces its transient native status message.
  */
 function refreshTranscript(ctx: any): void {
 	if (!ctx?.hasUI) return;
-	ctx.ui.setHiddenThinkingLabel();
+	const expanded = ctx.ui.getToolsExpanded?.() === true;
+	ctx.ui.setToolsExpanded?.(!expanded);
+	ctx.ui.setToolsExpanded?.(expanded);
 }
 
 function registerToolOverride(
