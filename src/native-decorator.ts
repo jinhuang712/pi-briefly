@@ -108,16 +108,15 @@ class TerseLine implements Component {
 	}
 
 	/**
-	 * `(elapsed …)` while the call runs, `(took …)` once it finished. A replayed
-	 * row has no clock and therefore shows no timing at all, rather than a fake
-	 * `0.0s`.
+	 * Just the number: the status mark already says whether the call is still
+	 * running, so a label would be redundant. A replayed row has no clock and
+	 * therefore shows no timing at all, rather than a fake `0.0s`.
 	 */
 	private timing(): string | undefined {
 		const { startedAt, endedAt } = this.state;
 		if (startedAt === undefined) return undefined;
-		if (this.state.phase === "pending") return `(elapsed ${formatCallDuration(Date.now() - startedAt)})`;
-		if (endedAt === undefined) return undefined;
-		return `(took ${formatCallDuration(endedAt - startedAt)})`;
+		if (this.state.phase === "pending") return `(${formatCallDuration(Date.now() - startedAt)})`;
+		return endedAt === undefined ? undefined : `(${formatCallDuration(endedAt - startedAt)})`;
 	}
 
 	render(width: number): string[] {

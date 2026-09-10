@@ -66,7 +66,7 @@ When a change affects interactive rendering, also run Pi in a TTY and manually v
 - `/briefly` toggles between one gray line per call and native rendering
 - `Ctrl+O` expansion restores the native row
 - streaming/partial calls show the derived description before `brief` arrives
-- a running call shows `(elapsed …)` in front of the description and keeps counting, then settles to `(took …)`
+- a running call shows `(0.4s)` in front of the description and keeps counting, then settles to the final `(5.0s)`
 - a failing tool shows `✗` plus one error line
 - flipping the switch leaves no empty tool row
 - the turn ends with exactly one `Took` line, the one `pi-elapsed` writes

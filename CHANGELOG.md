@@ -13,7 +13,7 @@ All notable changes to `pi-briefly` are documented here.
 ### Added
 
 - Terse mode: every built-in tool call renders as a single gray line, `✓ read · 查看配置解析逻辑`, with `✗` and one clipped error line when the call fails.
-- Per-call timing in front of the description: `(elapsed 2.1s)` while the call runs, repainted once per second even when the tool prints nothing, then `(took 5.0s)`. Replayed rows show no timing instead of a fake `0.0s`.
+- Per-call timing in front of the description, shown as the bare number: `(2.1s)` while the call runs, repainted once per second even when the tool prints nothing, then the final `(5.0s)`. Replayed rows show no timing instead of a fake `0.0s`.
 - Typography carries the row hierarchy: bold tool name, italic timing and raw heuristic target, plain gray description.
 - The model supplies the description: a required `brief` argument is added to the built-in tool schemas while terse mode is on, and one instruction line is appended to the system prompt.
 - `prepareArguments` fills in a heuristic description when the model omits or blanks `brief`, so a missing description can neither fail the tool call nor leave an empty row, and older sessions stay replayable.
