@@ -25,7 +25,25 @@ With the switch off, the built-in tools are registered with their original schem
 
 ### Scope
 
-Terse rendering applies to Pi's built-in tools. Tools registered by other extensions (for example MCP tools) keep their own renderer: Pi exposes no renderer-only override hook, and registering a same-named tool would take over execution as well and break the real tool. Those rows keep whatever presentation their own extension provides.
+Terse rendering applies to Pi's built-in tools, and to any tool whose own extension hands its row over through the row decorator hub (see below). A tool that does not opt in keeps its own renderer: Pi exposes no renderer-only override hook, and registering a same-named tool would take over execution as well and break the real tool.
+
+#### Row decorator hub (for tools owned by other extensions)
+
+An extension that owns a tool keeps execution, schema and description, and asks `pi-briefly` for the presentation slots instead:
+
+```ts
+const hub = (globalThis as any)[Symbol.for("pi.toolRowDecorator.v1")];
+const decoration = hub?.decorate({
+  tool: "websearch",
+  purpose: { en: "searching the web", zh: "联网搜索" }, // optional wording for this row
+  native: { renderCall, renderShell: "default" }, // your own renderers, used when expanded or with terse off
+});
+pi.registerTool(decoration ? { ...definition, ...decoration } : definition);
+```
+
+`purpose` is optional but recommended whenever the tool name does not say what it does: `search` and `fetch` mean different things in different extensions, and only the owner knows which. What the model writes in `brief` still outranks it, and the layout stays pi-briefly's.
+
+Query the hub in a `session_start` handler - it is published when `pi-briefly` loads, which may be after your extension - and re-apply on `hub.subscribe(apply)`, because `/briefly` can be flipped mid-session. Without `pi-briefly` (or with terse mode off) `decorate` returns nothing and your definition stays exactly as it is. The contract is versioned by the symbol name; details and two working consumers are [`pi-lite-web`](https://github.com/jinhuang712/pi-lite-web) and [`pi-view`](https://github.com/jinhuang712/pi-view).
 
 Thinking blocks are not modified by `pi-briefly`; use Pi's native `hideThinkingBlock` setting.
 

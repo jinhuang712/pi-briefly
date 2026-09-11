@@ -32,6 +32,7 @@ import {
 } from "./i18n.ts";
 import { renderToolCall, renderToolResult, type RenderContext } from "./native-decorator.ts";
 import { presentationFor } from "./policy.ts";
+import { installToolRowDecoratorHub } from "./row-decorator.ts";
 import { type BrieflyConfig, type Locale, type ToolName, toolNames } from "./types.ts";
 
 type BuiltInTools = ReturnType<typeof createBuiltInTools>;
@@ -437,6 +438,12 @@ export default function piBriefly(pi: ExtensionAPI): void {
 
 	const getConfig = (): BrieflyConfig => currentConfig;
 
+	// Published at load so a tool owned by another extension can hand its row
+	// over; such an owner queries the hub in its own `session_start`, which Pi
+	// emits only after every extension has loaded. The switch notifies them so
+	// they re-apply (and drop the decoration when terse mode goes off).
+	const notifyRowDecoration = installToolRowDecoratorHub({ config: getConfig });
+
 	const reloadConfig = (cwd: string, notify?: (message: string, level: "info" | "warning" | "error") => void): void => {
 		const loaded = loadConfig(cwd);
 		currentConfig = loaded.config;
@@ -456,6 +463,7 @@ export default function piBriefly(pi: ExtensionAPI): void {
 
 	const applyPresentation = (ctx?: any): void => {
 		applyToolSchemas();
+		notifyRowDecoration();
 		refreshTranscript(ctx);
 	};
 

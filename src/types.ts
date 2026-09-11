@@ -17,6 +17,16 @@ export type Presentation = "native" | "terse";
 /** Status of a single tool call, used by the terse row. */
 export type ToolPhase = "pending" | "done" | "error";
 
+/**
+ * Wording a tool owner can declare for its own rows, so pi-briefly never has to
+ * learn a tool's name to describe it well. See the row decorator hub in
+ * `row-decorator.ts`.
+ */
+export interface CallWording {
+	en: string;
+	zh: string;
+}
+
 export interface BrieflyConfig {
 	version: 2;
 	terse: boolean;

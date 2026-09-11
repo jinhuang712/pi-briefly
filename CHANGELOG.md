@@ -2,6 +2,18 @@
 
 All notable changes to `pi-briefly` are documented here.
 
+## [Unreleased]
+
+### Added
+
+- Row decorator hub (`Symbol.for("pi.toolRowDecorator.v1")`): a tool owned by another extension can hand its presentation over without giving up execution. The owner asks the hub for `renderCall`/`renderResult`/`renderShell` in a `session_start` handler, re-applies on `hub.subscribe(...)`, and hands its own native renderers along so expanded rows and terse-off still render exactly as before.
+- External tool names in the terse row: purpose wording for `websearch` and `view`, a generic fallback (purpose plus the first recognizable target argument) for anything else, and an optional `purpose` on the hub request so a tool owner declares the verb for its own rows — `search` and `fetch` mean different things in different extensions, and only their owner knows which. A model-written `brief` still outranks both.
+- A result text fallback for decorated tools that define no `renderResult` of their own: the terse row hides results anyway, but an expanded row or terse-off would otherwise show nothing.
+
+### Changed
+
+- The `Scope` section in `README.md` no longer claims other extensions' tools can never be restyled; they can, by opting into the hub.
+
 ## [0.2.0] - 2026-09-10
 
 ### Breaking changes

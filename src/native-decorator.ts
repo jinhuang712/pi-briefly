@@ -2,7 +2,7 @@ import type { Theme, ToolRenderResultOptions } from "@earendil-works/pi-coding-a
 import { Box, type Component, Text, truncateToWidth } from "@earendil-works/pi-tui";
 import { describeCall, errorExcerpt, type CallDescription } from "./brief.ts";
 import { formatCallDuration } from "./summary.ts";
-import type { Presentation, ResolvedLocale, ToolName, ToolPhase } from "./types.ts";
+import type { CallWording, Presentation, ResolvedLocale, ToolName, ToolPhase } from "./types.ts";
 
 export interface RenderContext {
 	args: Record<string, unknown>;
@@ -93,10 +93,10 @@ class TerseLine implements Component {
 	private brief = "";
 	private detail?: string;
 	private readonly theme: Theme;
-	private readonly tool: ToolName;
+	private readonly tool: string;
 	private readonly state: RowState;
 
-	constructor(theme: Theme, tool: ToolName, state: RowState) {
+	constructor(theme: Theme, tool: string, state: RowState) {
 		this.theme = theme;
 		this.tool = tool;
 		this.state = state;
@@ -229,20 +229,21 @@ function rowOf(context: RenderContext, theme: Theme, boxed: boolean): ToolRowCom
 }
 
 export function renderToolCall(
-	tool: ToolName,
+	tool: ToolName | (string & {}),
 	nativeRenderer: NativeCallRenderer | undefined,
 	args: unknown,
 	theme: Theme,
 	context: RenderContext,
 	presentation: Presentation,
 	locale: ResolvedLocale,
+	wording?: CallWording,
 ): Component {
 	const state = stateOf(context);
 	if (presentation === "terse") {
 		const row = rowOf(context, theme, false);
 		const line = state.line ?? new TerseLine(theme, tool, state);
 		state.line = line;
-		line.setDescription(describeCall(tool, (args ?? {}) as Record<string, unknown>, locale));
+		line.setDescription(describeCall(tool, (args ?? {}) as Record<string, unknown>, locale, wording));
 		// Mirror Pi's native rows: the clock starts when execution really starts,
 		// which also keeps replayed sessions from reporting a fake duration.
 		if (context.executionStarted && state.startedAt === undefined) state.startedAt = Date.now();
@@ -265,7 +266,7 @@ export function renderToolCall(
 }
 
 export function renderToolResult(
-	tool: ToolName,
+	tool: ToolName | (string & {}),
 	nativeRenderer: NativeResultRenderer | undefined,
 	result: DisplayResult,
 	options: ToolRenderResultOptions,
@@ -300,9 +301,26 @@ export function renderToolResult(
 	}
 
 	const row = rowOf(context, theme, tool !== "edit");
-	const inner = nativeRenderer?.(result, options, theme, { ...context, lastComponent: state.nativeResult });
+	const inner = nativeRenderer?.(result, options, theme, { ...context, lastComponent: state.nativeResult }) ?? textResult(theme, result);
 	state.nativeResult = inner;
 	row.setResult(inner);
 	row.setStatus(context.isPartial, context.isError);
 	return state.emptyResult ??= new EmptyComponent();
+}
+
+/**
+ * Result text for a tool that has no native result renderer of its own.
+ *
+ * A decorated tool is only ever handed over by its owner, and an owner may well
+ * have no result slot (pi-lite-web has none). The terse row hides the
+ * result anyway, but the expanded row still has to show it, so render the text
+ * instead of dropping it.
+ */
+function textResult(theme: Theme, result: DisplayResult): Component | undefined {
+	const text = (result.content ?? [])
+		.filter((item) => item.type === "text" && typeof item.text === "string")
+		.map((item) => item.text ?? "")
+		.join("\n")
+		.trim();
+	return text ? new Text(theme.fg("toolOutput", text), 0, 0) : undefined;
 }

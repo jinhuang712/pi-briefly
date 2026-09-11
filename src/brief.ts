@@ -1,4 +1,4 @@
-import { BRIEF_PARAMETER, type ResolvedLocale, type ToolName } from "./types.ts";
+import { BRIEF_PARAMETER, type CallWording, type ResolvedLocale, type ToolName } from "./types.ts";
 
 /**
  * The model is asked for at most this many characters. The terse row also
@@ -108,10 +108,41 @@ function filePurpose(tool: "read" | "write" | "edit", args: Record<string, unkno
 }
 
 /**
+ * Wording for tools pi-briefly does not own. Their owner hands the row over
+ * through the row decorator hub, and these are the only two names the terse row
+ * has a purpose for; anything else falls back to a generic verb.
+ */
+const EXTERNAL_PURPOSES: Record<string, Record<ResolvedLocale, string>> = {
+	websearch: { en: "searching", zh: "搜索" },
+	view: { en: "viewing image", zh: "查看图片" },
+};
+
+/** Argument keys that name the concrete target of a call, most specific first. */
+const TARGET_KEYS = ["query", "path", "pattern", "url", "file", "tool", "name", "target"];
+
+function externalTarget(args: Record<string, unknown>): string {
+	for (const key of TARGET_KEYS) {
+		const value = args[key];
+		if (typeof value === "string" && value.trim()) return shorten(value, 100);
+	}
+	const first = Object.values(args).find((value) => typeof value === "string" && value.trim());
+	return typeof first === "string" ? shorten(first, 100) : "";
+}
+
+/**
  * Heuristic purpose/detail derived from the tool arguments. Used only as a
  * fallback: the model is expected to supply its own `brief`.
+ *
+ * `wording` is what the tool's own extension declared when it handed its row
+ * over, and it outranks the table below: names like `search` or `fetch` mean
+ * different things in different extensions, and only their owner knows which.
  */
-export function callParts(tool: ToolName, args: Record<string, unknown>, locale: ResolvedLocale = "en"): CallParts {
+export function callParts(
+	tool: ToolName | (string & {}),
+	args: Record<string, unknown>,
+	locale: ResolvedLocale = "en",
+	wording?: CallWording,
+): CallParts {
 	switch (tool) {
 		case "bash": {
 			const command = typeof args.command === "string" ? normalizedCommand(args.command) : "...";
@@ -129,6 +160,11 @@ export function callParts(tool: ToolName, args: Record<string, unknown>, locale:
 			return { purpose: locale === "zh" ? "搜索文本" : "searching text", detail: shorten(typeof args.pattern === "string" ? args.pattern : "text", 100) };
 		case "ls":
 			return { purpose: locale === "zh" ? "列出文件" : "listing", detail: shorten(typeof args.path === "string" ? args.path : ".", 100) };
+		default:
+			return {
+				purpose: wording?.[locale] ?? EXTERNAL_PURPOSES[tool]?.[locale] ?? (locale === "zh" ? "调用" : "using"),
+				detail: externalTarget(args),
+			};
 	}
 }
 
@@ -146,15 +182,16 @@ export interface CallDescription {
  * The single source of truth for the terse row text.
  */
 export function describeCall(
-	tool: ToolName,
+	tool: ToolName | (string & {}),
 	args: Record<string, unknown> | undefined,
 	locale: ResolvedLocale = "en",
+	wording?: CallWording,
 ): CallDescription {
 	const input = args ?? {};
 	const raw = typeof input[BRIEF_PARAMETER] === "string" ? (input[BRIEF_PARAMETER] as string) : "";
 	const brief = raw.replace(/\s+/g, " ").trim();
 	if (brief) return { brief: clip(brief, BRIEF_MAX_CHARS) };
-	const parts = callParts(tool, input, locale);
+	const parts = callParts(tool, input, locale, wording);
 	return {
 		brief: clip(parts.purpose, BRIEF_MAX_CHARS),
 		detail: parts.detail ? clip(parts.detail, 60) : undefined,
@@ -162,8 +199,13 @@ export function describeCall(
 }
 
 /** Text form of {@link describeCall}, used by tooling and tests. */
-export function briefFromArgs(tool: ToolName, args: Record<string, unknown> | undefined, locale: ResolvedLocale = "en"): string {
-	const { brief, detail } = describeCall(tool, args, locale);
+export function briefFromArgs(
+	tool: ToolName | (string & {}),
+	args: Record<string, unknown> | undefined,
+	locale: ResolvedLocale = "en",
+	wording?: CallWording,
+): string {
+	const { brief, detail } = describeCall(tool, args, locale, wording);
 	return detail ? `${brief} › ${detail}` : brief;
 }
 
