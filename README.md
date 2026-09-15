@@ -10,8 +10,8 @@ Modes are fixed presets: choose one whole presentation policy rather than mixing
 
 | Mode | While the agent runs | Thinking | After the turn settles |
 | --- | --- | --- | --- |
-| `visible` | Every tool call and result uses Pi's native renderer. | Native full thinking. | Native tool rows remain; a standalone `Took` line is shown. |
-| `compact` | Calls become short operation briefs and results become one-line summaries. `edit` keeps a clipped native diff; new `write` keeps a short native-highlighted preview. | Streams natively, then each completed block becomes a one-line brief. | Tool rows stay compact; a standalone `Took · spent tokens` line is shown. |
+| `visible` | Every tool call and result uses Pi's native renderer. | Native full thinking. | Native tool rows remain. |
+| `compact` | Calls become short operation briefs and results become one-line summaries. `edit` keeps a clipped native diff; new `write` keeps a short native-highlighted preview. | Streams natively, then each completed block becomes a one-line brief. | Tool rows stay compact. |
 | `collapse` | Tool calls/results stay native while running. | One-line briefs while running. | Tool rows are folded, thinking becomes `… intermediate steps collapsed`, and one aggregate summary reports time, tool calls, files, context, tokens, and errors. |
 | `hidden` | Tool and thinking detail is replaced by one-line stubs. | `… hidden` stub. | A hidden-step count is shown when tools ran; the final answer remains visible. |
 
@@ -22,7 +22,7 @@ Modes are fixed presets: choose one whole presentation policy rather than mixing
 - **`collapse`** — want to watch the run, then keep only a turn summary.
 - **`hidden`** — want the cleanest transcript and do not need process details.
 
-`Working... (elapsed time)` appears during active TUI turns. `visible` and `compact` show a separate final `(Took … · spent … tokens.)` line; `collapse` includes those metrics in its aggregate summary, while `hidden` intentionally keeps process timing hidden. `Ctrl+O` restores native content where the selected presentation supports expansion.
+Turn timing (`Working...` and the final `Took` line) lives in the companion `pi-elapsed` extension. `collapse` still reports time, tool calls, files, context, tokens, and errors in its aggregate summary, while `hidden` intentionally keeps process timing hidden. `Ctrl+O` restores native content where the selected presentation supports expansion.
 
 ### Long-turn navigation
 
@@ -61,11 +61,9 @@ read file src/index.ts
 
 write file README.md
 │ 42 lines written · 980 chars
-
-(Took 3 seconds · spent 12.3k tokens.)
 ```
 
-The compact call line uses a styled tool name, purpose, and dim argument/path or script brief. Each result keeps a visible `│` separator. `edit` keeps Pi's native preview and result diff renderer, showing only changed diff lines in the native shell. New `write` calls keep Pi's native syntax-highlighted preview, limited to the first few lines. Other rows retain Pi's native tool background, padding, and status colors. Visible and compact modes each emit one final `(Took … · spent … tokens.)` line after the whole turn; native tool rows continue to provide their own per-tool elapsed counter. `Took` (including turn token usage) and the live `Working...` timer are common pi-briefly capabilities, not mode-specific tool presentation features.
+The compact call line uses a styled tool name, purpose, and dim argument/path or script brief. Each result keeps a visible `│` separator. `edit` keeps Pi's native preview and result diff renderer, showing only changed diff lines in the native shell. New `write` calls keep Pi's native syntax-highlighted preview, limited to the first few lines. Other rows retain Pi's native tool background, padding, and status colors. Native tool rows continue to provide their own per-tool elapsed counter; install the companion `pi-elapsed` extension for the live `Working...` timer and the final `(Took … · spent … tokens.)` line.
 
 ### Collapse output
 
@@ -76,7 +74,7 @@ After a settled turn, `collapse` keeps the final answer and displays:
 ✓ spent 11 seconds · 4 tool calls · 1 file read · used context 6.4k (2%) · spent tokens 31.2k
 ```
 
-During execution, tools remain fully visible using Pi's native renderer, and thinking condenses to one-line briefs. Pi's working indicator shows friendly elapsed time, for example `Working... (1 minute 53 seconds)`. Visible and compact modes emit one final turn duration such as `(Took 3 seconds · spent 12.3k tokens.)`; native tool rows retain their own elapsed counter. `Ctrl+O` expands the folded native tool rows and restores the original thinking/tool presentation; pressing it again folds them back.
+During execution, tools remain fully visible using Pi's native renderer, and thinking condenses to one-line briefs. Native tool rows retain their own elapsed counter; the companion `pi-elapsed` extension provides the `Working...` timer and the final `Took` line. `Ctrl+O` expands the folded native tool rows and restores the original thinking/tool presentation; pressing it again folds them back.
 
 The summary is turn-scoped:
 
@@ -108,7 +106,7 @@ Open the mode selector:
 /briefly
 ```
 
-The TUI lists the active mode first and shows the common turn status examples separately in muted text:
+The TUI lists the active mode first:
 
 ```text
 pi-briefly mode — compact
@@ -117,11 +115,9 @@ pi-briefly mode — compact
     visible      Full native
     collapse     Fold after run
     hidden       No UI
-
-Common:
-  Working... (1 minute 53 seconds)
-  Took 3 seconds · spent 12.3k tokens
 ```
+
+Turn timing lives in the companion `pi-elapsed` extension (`Working...` / `Took`).
 
 Direct commands:
 

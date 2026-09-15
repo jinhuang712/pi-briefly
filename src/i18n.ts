@@ -52,12 +52,6 @@ export function getModeDescription(locale: ResolvedLocale, mode: PresetMode): st
 	return modeDescriptions[locale][mode];
 }
 
-export function getCommonFeatures(locale: ResolvedLocale): string {
-	return locale === "zh"
-		? "通用：\n  执行中... (1 分钟 53 秒)\n  耗时 3 秒 · 消耗 12.3k tokens"
-		: "Common:\n  Working... (1 minute 53 seconds)\n  Took 3 seconds · spent 12.3k tokens";
-}
-
 export function getTranscriptNavigationFeatures(locale: ResolvedLocale, promptKey: string, bottomKey: string): string {
 	return locale === "zh"
 		? `转录（全屏）：\n  ${promptKey} 跳到 prompt\n  ${bottomKey} 跳到底部`
@@ -161,8 +155,4 @@ export function notifyModeChanged(locale: ResolvedLocale, mode: PresetMode): str
 
 export function notifyCurrentMode(locale: ResolvedLocale, mode: PresetMode): string {
 	return locale === "zh" ? `当前 pi-briefly 模式：${mode}` : `Current pi-briefly mode: ${mode}`;
-}
-
-export function workingMessage(locale: ResolvedLocale, elapsed: string): string {
-	return locale === "zh" ? `执行中... (${elapsed})` : `Working... (${elapsed})`;
 }

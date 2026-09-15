@@ -4,7 +4,14 @@ All notable changes to `pi-briefly` are documented here.
 
 ## [Unreleased]
 
-- Added a persistent centered transcript navigation pill for jumping to the prompt and back to the bottom, using Pi's native fullscreen viewport actions; macOS uses `Ctrl+\` and `Ctrl+]` to avoid arrow and function-key conflicts.
+### Changed
+
+- Extracted the live `Working...` timer and the final `Took` duration line into the companion `pi-elapsed` extension. `pi-briefly` no longer emits turn durations; install `pi-elapsed` alongside for timing. The collapse aggregate summary still reports elapsed time and token usage.
+- Removed `showsTurnDuration`, `formatTook`, `workingMessage`, and `getCommonFeatures`; the `/briefly` selector no longer shows common turn-status examples.
+
+### Added
+
+- Persistent centered transcript navigation pill for jumping to the prompt and back to the bottom, using Pi's native fullscreen viewport actions; macOS uses `Ctrl+\` and `Ctrl+]` to avoid arrow and function-key conflicts.
 
 ## [0.1.0] - 2026-08-31
 
@@ -35,5 +42,5 @@ All notable changes to `pi-briefly` are documented here.
 
 ### Verification
 
-- Unit and lifecycle test suite: 30 tests passing.
+- Unit and lifecycle test suite: 28 tests passing.
 - Multi-tool JSON smoke test and TUI selector verification.

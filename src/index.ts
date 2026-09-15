@@ -33,7 +33,6 @@ import { loadConfig, saveConfig, setLocale, setMode } from "./config.ts";
 import { toolBrief } from "./brief.ts";
 import {
 	getCollapsedThinkingLabel,
-	getCommonFeatures,
 	getCurrentModeSuffix,
 	getHiddenThinkingStub,
 	getHiddenToolsSummary,
@@ -48,12 +47,11 @@ import {
 	notifyReloaded,
 	notifyReset,
 	resolveLocale,
-	workingMessage,
 } from "./i18n.ts";
 import { LifecycleController } from "./lifecycle.ts";
 import { renderCallWithStyle, renderResultWithStyle, type RenderContext } from "./native-decorator.ts";
-import { resolveSlot, showsTurnDuration } from "./policy.ts";
-import { formatCollapseSummary, formatDuration, formatTook } from "./summary.ts";
+import { resolveSlot } from "./policy.ts";
+import { formatCollapseSummary } from "./summary.ts";
 import { isAlreadyCondensedThinking, resolveThinkingPresentation, thinkingBrief } from "./thinking.ts";
 import { type BrieflyConfig, type Locale, type PresetMode, toolNames } from "./types.ts";
 
@@ -61,7 +59,6 @@ type BuiltInTools = ReturnType<typeof createBuiltInTools>;
 type AnyTool = Record<string, any>;
 
 const COLLAPSE_SUMMARY_TYPE = "pi-briefly-collapse-summary";
-const TURN_DURATION_TYPE = "pi-briefly-turn-duration";
 const HIDDEN_SUMMARY_TYPE = "pi-briefly-hidden-summary";
 const NAVIGATION_HINT_WIDGET_KEY = "pi-briefly-navigation-hint";
 const MAC_PROMPT_NAVIGATION_KEY = "ctrl+\\";
@@ -442,7 +439,6 @@ async function selectMode(ctx: any, ordered: PresetMode[], currentMode: PresetMo
 		selectList.onCancel = () => done(undefined);
 		container.addChild(selectList);
 		container.addChild(new Spacer(1));
-		container.addChild(new Text(theme.fg("dim", getCommonFeatures(locale)), 1, 0));
 		container.addChild(new Spacer(1));
 		container.addChild(
 			new Text(
@@ -552,8 +548,6 @@ export default function piBriefly(pi: ExtensionAPI): void {
 	let currentConfig = loadConfig(process.cwd()).config;
 	const lifecycle = new LifecycleController();
 	let turnTokens = 0;
-	let workingStartedAt: number | undefined;
-	let workingTimer: ReturnType<typeof setInterval> | undefined;
 	const initial = getBuiltInTools(process.cwd()) as Record<string, AnyTool>;
 	let toolsExpanded = false;
 	let refreshAssistantComponents: (() => void) | undefined;
@@ -568,11 +562,6 @@ export default function piBriefly(pi: ExtensionAPI): void {
 			0,
 			0,
 		);
-	});
-	pi.registerEntryRenderer(TURN_DURATION_TYPE, (entry, _options, theme) => {
-		const data = entry.data as { durationMs?: number; locale?: string; spentTokens?: number };
-		const locale = (data.locale === "zh" ? "zh" : data.locale === "en" ? "en" : resolveLocale(currentConfig)) as "en" | "zh";
-		return new Text(theme.fg("dim", formatTook(data.durationMs ?? 0, locale, data.spentTokens)), 2, 0);
 	});
 	pi.registerEntryRenderer(HIDDEN_SUMMARY_TYPE, (entry, { expanded }, theme) => {
 		const data = entry.data as { count?: number; locale?: string };
@@ -613,35 +602,14 @@ export default function piBriefly(pi: ExtensionAPI): void {
 		toolsExpanded = expanded;
 		if (lifecycle.isSettled()) refreshAssistantComponents?.();
 	};
-	const stopWorkingTimer = (ctx: any): void => {
-		if (workingTimer) clearInterval(workingTimer);
-		workingTimer = undefined;
-		workingStartedAt = undefined;
-		if (ctx.hasUI) ctx.ui.setWorkingMessage();
-	};
-	const startWorkingTimer = (ctx: any): void => {
-		stopWorkingTimer(ctx);
-		if (!ctx.hasUI) return;
-		workingStartedAt = Date.now();
-		const update = (): void => {
-			if (workingStartedAt === undefined) return;
-			const locale = resolveLocale(currentConfig);
-			const elapsed = formatDuration(Date.now() - workingStartedAt, locale);
-			ctx.ui.setWorkingMessage(workingMessage(locale, elapsed));
-		};
-		update();
-		workingTimer = setInterval(update, 1000);
-	};
-
 	pi.on("session_start", async (_event, ctx) => {
 		reloadConfig(ctx.cwd, ctx.hasUI ? (message, level) => ctx.ui.notify(message, level) : undefined);
 		setNavigationHint(ctx, currentConfig);
 		setStickyPromptPreview(ctx);
 	});
-	pi.on("agent_start", (_event, ctx) => {
+	pi.on("agent_start", () => {
 		turnTokens = 0;
 		lifecycle.beginAgent();
-		startWorkingTimer(ctx);
 	});
 	pi.on("message_end", (event) => {
 		const message = event.message as any;
@@ -653,9 +621,7 @@ export default function piBriefly(pi: ExtensionAPI): void {
 		if (isToolName(event.toolName)) lifecycle.start(event.toolCallId, event.toolName, event.args);
 	});
 	pi.on("tool_execution_end", (event) => lifecycle.complete(event.toolCallId, event.isError));
-	pi.on("agent_end", (_event, ctx) => stopWorkingTimer(ctx));
 	pi.on("agent_settled", (_event, ctx) => {
-		stopWorkingTimer(ctx);
 		const stats = lifecycle.statistics();
 		const turnDurationMs = Date.now() - stats.startedAt;
 		const summary = collapseSummary(ctx, lifecycle, turnTokens, currentConfig);
@@ -666,13 +632,6 @@ export default function piBriefly(pi: ExtensionAPI): void {
 			// with tool rows in collapse mode.
 			refreshAssistantMessages(ctx);
 		}
-		if (showsTurnDuration(currentConfig.mode)) {
-			pi.appendEntry(TURN_DURATION_TYPE, {
-				durationMs: turnDurationMs,
-				locale: resolveLocale(currentConfig),
-				spentTokens: turnTokens > 0 ? turnTokens : undefined,
-			});
-		}
 		if (currentConfig.mode === "collapse" && stats.toolCalls > 0) {
 			pi.appendEntry(COLLAPSE_SUMMARY_TYPE, { summary });
 		}
@@ -680,8 +639,7 @@ export default function piBriefly(pi: ExtensionAPI): void {
 			pi.appendEntry(HIDDEN_SUMMARY_TYPE, { count: stats.toolCalls, locale: resolveLocale(currentConfig) });
 		}
 	});
-	pi.on("session_shutdown", (_event, ctx) => {
-		stopWorkingTimer(ctx);
+	pi.on("session_shutdown", () => {
 		lifecycle.clear();
 	});
 

@@ -1,6 +1,10 @@
 import type { RunStatistics } from "./lifecycle.ts";
 import type { ResolvedLocale } from "./types.ts";
 
+// Note: the standalone `Took` line and live `Working...` timer now live in the
+// pi-elapsed companion extension. formatDuration/formatTokens stay here because
+// the collapse aggregate summary still reports elapsed time and token usage.
+
 export interface ContextSnapshot {
 	tokens: number | null;
 	percent: number | null;
@@ -25,16 +29,6 @@ export function formatDuration(milliseconds: number, locale: ResolvedLocale = "e
 	if (minutes > 0) parts.push(`${minutes} minute${minutes === 1 ? "" : "s"}`);
 	if (seconds > 0 || parts.length === 0) parts.push(`${seconds} second${seconds === 1 ? "" : "s"}`);
 	return parts.join(" ");
-}
-
-export function formatTook(milliseconds: number, locale: ResolvedLocale = "en", spentTokens?: number | null): string {
-	const duration = formatDuration(milliseconds, locale);
-	const tokens = spentTokens === undefined || spentTokens === null
-		? ""
-		: locale === "zh"
-			? ` · 消耗 ${formatTokens(spentTokens)} tokens`
-			: ` · spent ${formatTokens(spentTokens)} tokens`;
-	return locale === "zh" ? `（耗时 ${duration}${tokens}。）` : `(Took ${duration}${tokens}.)`;
 }
 
 export function formatTokens(tokens: number | null | undefined): string {
